@@ -1,11 +1,7 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const searchRoutes = require('./routes/search');
-const streamRoutes = require('./routes/stream');
-const albumRoutes = require('./routes/album');
-const playlistRoutes = require('./routes/playlist');
-const suggestionsRoutes = require('./routes/suggestions');
-const chartsRoutes = require('./routes/charts');
+const jiosaavnRoutes = require('./routes/jiosaavn');
+const ytmusicRoutes = require('./routes/ytmusic');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,15 +33,11 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', sources: ['jiosaavn', 'ytmusic'] });
 });
 
-app.use('/search', searchRoutes);
-app.use('/track', streamRoutes);
-app.use('/album', albumRoutes);
-app.use('/playlist', playlistRoutes);
-app.use('/suggestions', suggestionsRoutes);
-app.use('/charts', chartsRoutes);
+app.use('/jiosaavn', jiosaavnRoutes);
+app.use('/ytmusic', ytmusicRoutes);
 
 app.use((_req, res) => {
-  res.status(404).json({ error: 'not_found', message: 'Endpoint not found' });
+  res.status(404).json({ error: 'not_found', message: 'Endpoint not found. Available: /health, /jiosaavn/*, /ytmusic/*' });
 });
 
 app.use((err, _req, res, _next) => {
@@ -57,7 +49,22 @@ process.on('unhandledRejection', (reason) => {
   console.error('[unhandledRejection]', reason);
 });
 
-app.listen(PORT, () => {
-  console.log(`Music Scraper API running on http://localhost:${PORT}`);
-  console.log(`Sources: jiosaavn, ytmusic`);
+const server = app.listen(PORT, () => {
+  console.log(`OpenMusic API running on http://localhost:${PORT}`);
+  console.log('Sources: /jiosaavn, /ytmusic');
 });
+
+function shutdown(signal) {
+  console.log(`\n[${signal}] Shutting down gracefully...`);
+  server.close(() => {
+    console.log('Server closed.');
+    process.exit(0);
+  });
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout.');
+    process.exit(1);
+  }, 10000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

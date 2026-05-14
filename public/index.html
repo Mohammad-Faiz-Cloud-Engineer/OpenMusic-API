@@ -433,6 +433,10 @@ const API = '';
 let currentSource = 'jiosaavn';
 let suggestionsTimer = null;
 
+function src(path) {
+  return `${API}/${currentSource}${path}`;
+}
+
 const $ = id => document.getElementById(id);
 const audio = $('audioPlayer');
 const playerBar = $('playerBar');
@@ -476,7 +480,7 @@ document.addEventListener('click', e => {
 
 async function loadSuggestions(q) {
   try {
-    const r = await fetch(`${API}/suggestions?q=${encodeURIComponent(q)}&source=${currentSource}`);
+    const r = await fetch(`${src('/suggestions')}?q=${encodeURIComponent(q)}`);
     if (!r.ok) return;
     const data = await r.json();
     const box = $('suggestionsBox');
@@ -499,7 +503,7 @@ async function doSearch() {
   $('suggestionsBox').classList.remove('show');
   $('searchResults').innerHTML = '<div class="loading"><div class="spinner"></div>Searching...</div>';
   try {
-    const r = await fetch(`${API}/search?q=${encodeURIComponent(q)}&source=${currentSource}`);
+    const r = await fetch(`${src('/search')}?q=${encodeURIComponent(q)}`);
     if (!r.ok) {
       const err = await r.json();
       throw new Error(err.message || `HTTP ${r.status}`);
@@ -545,7 +549,7 @@ async function loadAlbum() {
   if (!id) return;
   $('albumView').innerHTML = '<div class="loading"><div class="spinner"></div>Loading album...</div>';
   try {
-    const r = await fetch(`${API}/album/${encodeURIComponent(id)}?source=${currentSource}`);
+    const r = await fetch(`${src('/album')}/${encodeURIComponent(id)}`);
     if (!r.ok) {
       const err = await r.json();
       throw new Error(err.message || `HTTP ${r.status}`);
@@ -566,7 +570,7 @@ async function loadPlaylist() {
   if (!id) return;
   $('playlistView').innerHTML = '<div class="loading"><div class="spinner"></div>Loading playlist...</div>';
   try {
-    const r = await fetch(`${API}/playlist/${encodeURIComponent(id)}?source=${currentSource}`);
+    const r = await fetch(`${src('/playlist')}/${encodeURIComponent(id)}`);
     if (!r.ok) {
       const err = await r.json();
       throw new Error(err.message || `HTTP ${r.status}`);
@@ -616,7 +620,7 @@ async function loadCharts() {
   const el = $('chartsView');
   el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading charts...</div>';
   try {
-    const r = await fetch(`${API}/charts?source=${currentSource}`);
+    const r = await fetch(`${src('/charts')}`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     if (!data.charts?.length) {
@@ -666,7 +670,7 @@ async function playTrack(id, title, artist, thumbnail, source) {
   }
 
   try {
-    audio.setAttribute('src', `${API}/track/${encodeURIComponent(id)}/play?source=${source}`);
+    audio.setAttribute('src', `${API}/jiosaavn/track/${encodeURIComponent(id)}/play`);
     audio.load();
     await audio.play();
   } catch (e) {
