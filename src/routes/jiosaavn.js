@@ -2,12 +2,9 @@ const { Router } = require('express');
 const axios = require('axios');
 const jiosaavn = require('../scrapers/jiosaavn');
 const { searchCache, streamCache, metadataCache } = require('../utils/cache');
+const { trim } = require('../utils/normalize');
 
 const router = Router();
-
-function trim(v) {
-  return typeof v === 'string' ? v.trim() : v;
-}
 
 // ── Search ────────────────────────────────────────────────────────────────
 router.get('/search', async (req, res) => {

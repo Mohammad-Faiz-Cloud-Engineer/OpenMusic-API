@@ -49,6 +49,11 @@ process.on('unhandledRejection', (reason) => {
   console.error('[unhandledRejection]', reason);
 });
 
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+  shutdown('UNCAUGHT_EXCEPTION');
+});
+
 const server = app.listen(PORT, () => {
   console.log(`OpenMusic API running on http://localhost:${PORT}`);
   console.log('Sources: /jiosaavn, /ytmusic');

@@ -1,3 +1,7 @@
+function trim(v) {
+  return typeof v === 'string' ? v.trim() : v;
+}
+
 function pickThumbnail(thumbnails) {
   if (!thumbnails || !Array.isArray(thumbnails)) return null;
   const sorted = [...thumbnails].sort((a, b) => (b.width || 0) - (a.width || 0));
@@ -35,7 +39,7 @@ function jioSaavnSong(item) {
     id: item.id || item.encrypted_media_url,
     title: item.title || '',
     artist: extractJioSaavnArtist(item),
-    album: item.more_info?.album || item.album || item.title || '',
+    album: item.more_info?.album || item.album || '',
     duration_seconds: parseInt(item.duration || item.more_info?.duration || '0', 10) || 0,
     thumbnail: extractJioSaavnThumbnail(item),
     stream_url: item.stream_url || null,
@@ -201,7 +205,7 @@ function normalizeSuggestions(source, data, query) {
 
   let suggestions = [];
   if (Array.isArray(data)) {
-    suggestions = data.map(s => (typeof s === 'string' ? s : s.text || s.name || s.query || String(s)));
+    suggestions = data.map(s => (typeof s === 'string' ? s : s.text || s.name || s.query)).filter(Boolean);
   }
   return { source, query, suggestions };
 }
@@ -242,6 +246,7 @@ function normalizeCharts(source, data) {
 }
 
 module.exports = {
+  trim,
   normalizeSearch,
   normalizeStream,
   normalizeAlbum,
