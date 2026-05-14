@@ -17,6 +17,18 @@ A unified music API that scrapes metadata and streams from **JioSaavn** and **Yo
 
 ---
 
+## Use the hosted API
+
+Already deployed on Hugging Face Spaces:
+
+```
+https://LocalFind-OpenMusic-API.hf.space
+```
+
+Replace `https://your-space.hf.space` in all examples below with the URL above, or your own Space URL if you self-host.
+
+---
+
 ## Deploy on Hugging Face (1 click)
 
 1. Go to [huggingface.co/spaces](https://huggingface.co/spaces) and click **Create new Space**
@@ -75,60 +87,62 @@ Opens on `http://localhost:3000`. Hit `/health` to check.
 ### JavaScript (fetch)
 
 ```javascript
+const BASE = 'https://LocalFind-OpenMusic-API.hf.space';
+
 // ── JioSaavn ──────────────────────────────────────────────────
 
 // Search songs
-const searchRes = await fetch('https://your-space.hf.space/jiosaavn/search?q=tere naal');
+const searchRes = await fetch(`${BASE}/jiosaavn/search?q=tere naal`);
 const searchData = await searchRes.json();
 console.log(searchData.results);
 // [{ id, title, artist, album, duration_seconds, thumbnail, stream_url }, ...]
 
 // Get album details
-const albumRes = await fetch('https://your-space.hf.space/jiosaavn/album/70160165');
+const albumRes = await fetch(`${BASE}/jiosaavn/album/70160165`);
 const albumData = await albumRes.json();
 console.log(albumData);
 // { id, title, artist, year, song_count, duration_seconds, thumbnail, tracks: [...] }
 
 // Get playlist
-const plRes = await fetch('https://your-space.hf.space/jiosaavn/playlist/1134543272');
+const plRes = await fetch(`${BASE}/jiosaavn/playlist/1134543272`);
 const plData = await plRes.json();
 console.log(plData);
 
 // Trending charts
-const chartsRes = await fetch('https://your-space.hf.space/jiosaavn/charts');
+const chartsRes = await fetch(`${BASE}/jiosaavn/charts`);
 const chartsData = await chartsRes.json();
 console.log(chartsData.charts);
 
 // Get playable stream URL for a track
-const streamRes = await fetch('https://your-space.hf.space/jiosaavn/track/0gKfBAgi');
+const streamRes = await fetch(`${BASE}/jiosaavn/track/0gKfBAgi`);
 const streamData = await streamRes.json();
 console.log(streamData.stream_url);  // ← this is the actual audio URL
 
 // Play audio in browser (uses server-side proxy)
 const audio = new Audio();
-audio.src = 'https://your-space.hf.space/jiosaavn/track/0gKfBAgi/play';
+audio.src = `${BASE}/jiosaavn/track/0gKfBAgi/play`;
 audio.play();
 
 
 // ── YouTube Music ──────────────────────────────────────────────
 
 // Search songs
-const ytSearch = await fetch('https://your-space.hf.space/ytmusic/search?q=tere naal');
+const ytSearch = await fetch(`${BASE}/ytmusic/search?q=tere naal`);
 const ytData = await ytSearch.json();
 console.log(ytData.results);
 
 // Get album
-const ytAlbum = await fetch('https://your-space.hf.space/ytmusic/album/MPREb_DHWbS7Con8q');
+const ytAlbum = await fetch(`${BASE}/ytmusic/album/MPREb_DHWbS7Con8q`);
 const ytAlbumData = await ytAlbum.json();
 console.log(ytAlbumData);
 
 // Get playlist
-const ytPl = await fetch('https://your-space.hf.space/ytmusic/playlist/PL...');
+const ytPl = await fetch(`${BASE}/ytmusic/playlist/PL...`);
 const ytPlData = await ytPl.json();
 console.log(ytPlData);
 
 // Track metadata (no stream URL — open in YouTube)
-const ytTrack = await fetch('https://your-space.hf.space/ytmusic/track/dQw4w9WgXcQ');
+const ytTrack = await fetch(`${BASE}/ytmusic/track/dQw4w9WgXcQ`);
 const ytTrackData = await ytTrack.json();
 console.log(ytTrackData);
 // Open: https://www.youtube.com/watch?v=dQw4w9WgXcQ
@@ -139,7 +153,7 @@ console.log(ytTrackData);
 ```python
 import requests
 
-BASE = 'https://your-space.hf.space'
+BASE = 'https://LocalFind-OpenMusic-API.hf.space'
 
 # ── JioSaavn ──
 search = requests.get(f'{BASE}/jiosaavn/search', params={'q': 'tere naal'}).json()
@@ -159,20 +173,22 @@ print(yt['results'][0]['title'])
 ### cURL
 
 ```bash
+BASE=https://LocalFind-OpenMusic-API.hf.space
+
 # JioSaavn search
-curl 'https://your-space.hf.space/jiosaavn/search?q=tere%20naal'
+curl "$BASE/jiosaavn/search?q=tere%20naal"
 
 # JioSaavn album
-curl 'https://your-space.hf.space/jiosaavn/album/70160165'
+curl "$BASE/jiosaavn/album/70160165"
 
 # JioSaavn stream URL
-curl 'https://your-space.hf.space/jiosaavn/track/0gKfBAgi'
+curl "$BASE/jiosaavn/track/0gKfBAgi"
 
 # YouTube Music search
-curl 'https://your-space.hf.space/ytmusic/search?q=tere%20naal'
+curl "$BASE/ytmusic/search?q=tere%20naal"
 
 # YouTube Music album
-curl 'https://your-space.hf.space/ytmusic/album/MPREb_DHWbS7Con8q'
+curl "$BASE/ytmusic/album/MPREb_DHWbS7Con8q"
 ```
 
 ---
