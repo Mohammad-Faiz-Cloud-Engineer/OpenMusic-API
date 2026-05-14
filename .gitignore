@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/settings.json
+
+# Temp artifacts
+*.tmp
+*.pid
+*.bak
+*.orig
+*_old.*
+*_copy.*
+*.swp
+
+# Build output
+dist/
+build/
+coverage/
+.nyc_output/
+
+# Secrets
+*.pem
+*.key
+*credentials*.json
+*adminsdk*.json
+
+# Player script artifacts (downloaded YouTube player debug scripts)
+*player-script*.js

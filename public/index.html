@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Music API Tester</title>
+<style>
+:root {
+  --bg: #0f0f14;
+  --surface: #181820;
+  --surface2: #22222e;
+  --surface3: #2a2a3a;
+  --accent: #7c5cfc;
+  --accent2: #5b3dc7;
+  --text: #e8e8f0;
+  --text2: #9898b0;
+  --green: #34d399;
+  --red: #f87171;
+  --radius: 10px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding-bottom: 100px;
+}
+a { color: var(--accent); text-decoration: none; }
+
+.header {
+  background: var(--surface);
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--surface2);
+  position: sticky; top: 0; z-index: 100;
+}
+.header h1 {
+  font-size: 20px;
+  display: flex; align-items: center; gap: 10px;
+}
+.header h1 span { color: var(--accent); }
+
+.search-section {
+  max-width: 800px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+.source-tabs {
+  display: flex; gap: 8px; margin-bottom: 12px;
+}
+.source-tab {
+  padding: 8px 20px;
+  border-radius: 20px;
+  border: 1px solid var(--surface2);
+  background: var(--surface);
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.source-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.source-tab:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+
+.search-row { display: flex; gap: 8px; position: relative; }
+.search-row input {
+  flex: 1;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  border: 1px solid var(--surface2);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+  outline: none;
+  transition: border 0.2s;
+}
+.search-row input:focus { border-color: var(--accent); }
+.search-row input::placeholder { color: var(--text2); }
+.search-row button {
+  padding: 14px 28px;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.search-row button:hover { background: var(--accent2); }
+.search-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.suggestions-box {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 90px;
+  background: var(--surface);
+  border: 1px solid var(--surface2);
+  border-radius: 0 0 var(--radius) var(--radius);
+  max-height: 200px;
+  overflow-y: auto;
+  display: none;
+  z-index: 50;
+}
+.suggestions-box.show { display: block; }
+.suggestion-item {
+  padding: 10px 16px;
+  cursor: pointer;
+  color: var(--text2);
+  font-size: 14px;
+  transition: background 0.15s;
+}
+.suggestion-item:hover { background: var(--surface2); color: var(--text); }
+
+.content { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+
+.nav-tabs {
+  display: flex; gap: 4px;
+  border-bottom: 1px solid var(--surface2);
+  margin-bottom: 20px;
+}
+.nav-tab {
+  padding: 10px 20px;
+  cursor: pointer;
+  color: var(--text2);
+  font-size: 14px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.nav-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.nav-tab:hover:not(.active) { color: var(--text); }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Results grid */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+.track-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid transparent;
+}
+.track-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
+  border-color: var(--accent);
+}
+.track-card .art {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: var(--surface2);
+  display: block;
+}
+.track-card .info { padding: 12px; }
+.track-card .info .title {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.track-card .info .artist {
+  color: var(--text2);
+  font-size: 12px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.track-card .info .meta {
+  color: var(--text2);
+  font-size: 11px;
+  margin-top: 4px;
+  display: flex; gap: 8px;
+}
+.track-card .info .meta .tag {
+  background: var(--surface2);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* Detail view */
+.detail-view {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.detail-header { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+.detail-header img {
+  width: 200px;
+  height: 200px;
+  border-radius: var(--radius);
+  object-fit: cover;
+  background: var(--surface2);
+}
+.detail-header .info { flex: 1; min-width: 200px; }
+.detail-header .info h2 { font-size: 24px; margin-bottom: 4px; }
+.detail-header .info p { color: var(--text2); font-size: 14px; margin-bottom: 2px; }
+.detail-header .info .badge {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  margin-top: 8px;
+}
+.detail-tracks { margin-top: 16px; }
+.track-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.track-row:hover { background: var(--surface2); }
+.track-row .num { color: var(--text2); font-size: 13px; width: 24px; text-align: right; }
+.track-row .track-info { flex: 1; }
+.track-row .track-info .t-title { font-size: 14px; }
+.track-row .track-info .t-artist { font-size: 12px; color: var(--text2); }
+.track-row .t-dur { color: var(--text2); font-size: 13px; }
+.track-row .play-btn {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface3);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.track-row .play-btn:hover { background: var(--accent); }
+
+/* Charts grid */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.chart-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid var(--surface2);
+}
+.chart-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  border-color: var(--accent);
+}
+.chart-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--surface2);
+  margin-bottom: 10px;
+}
+.chart-card .c-title { font-weight: 600; font-size: 14px; }
+.chart-card .c-desc { color: var(--text2); font-size: 12px; margin-top: 2px; }
+
+/* Player bar */
+.player-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--surface2);
+  padding: 12px 24px;
+  display: none;
+  align-items: center;
+  gap: 16px;
+  z-index: 200;
+}
+.player-bar.show { display: flex; }
+.player-bar .now-playing { flex: 1; min-width: 0; }
+.player-bar .now-playing .np-title {
+  font-size: 14px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.player-bar .now-playing .np-artist {
+  font-size: 12px; color: var(--text2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.player-bar audio { flex: 1; max-width: 500px; height: 40px; }
+.player-bar .close-player {
+  background: none; border: none; color: var(--text2);
+  cursor: pointer; font-size: 18px; padding: 4px 8px;
+}
+.player-bar .close-player:hover { color: var(--text); }
+
+/* Loading */
+.loading {
+  text-align: center; padding: 40px; color: var(--text2);
+}
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--surface2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-state {
+  text-align: center; padding: 40px; color: var(--text2);
+}
+.empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+
+.error-box {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid var(--red);
+  border-radius: var(--radius);
+  padding: 16px;
+  color: var(--red);
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.error-box .er-title { font-weight: 600; margin-bottom: 4px; }
+.error-box pre {
+  margin-top: 8px; font-size: 12px;
+  background: rgba(0,0,0,0.2); padding: 8px;
+  border-radius: 4px; overflow-x: auto;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+@media (max-width: 600px) {
+  .results-grid { grid-template-columns: repeat(2, 1fr); }
+  .detail-header { flex-direction: column; }
+  .detail-header img { width: 100%; max-width: 200px; }
+  .player-bar { flex-direction: column; padding: 12px; }
+  .player-bar audio { max-width: 100%; width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>&#9835; Music API Tester</h1>
+</div>
+
+<div class="search-section">
+  <div class="source-tabs">
+    <button class="source-tab active" data-source="jiosaavn">JioSaavn</button>
+    <button class="source-tab" data-source="ytmusic">YouTube Music</button>
+  </div>
+  <div class="search-row">
+    <div style="flex:1; position:relative;">
+      <input type="text" id="searchInput" placeholder="Search for songs, artists, albums..." autocomplete="off">
+      <div class="suggestions-box" id="suggestionsBox"></div>
+    </div>
+    <button id="searchBtn">Search</button>
+  </div>
+</div>
+
+<div class="content">
+  <div class="nav-tabs">
+    <div class="nav-tab active" data-tab="search">Search</div>
+    <div class="nav-tab" data-tab="album">Album</div>
+    <div class="nav-tab" data-tab="playlist">Playlist</div>
+    <div class="nav-tab" data-tab="charts">Charts</div>
+  </div>
+
+  <div class="tab-panel active" id="tab-search">
+    <div id="searchResults"></div>
+  </div>
+
+  <div class="tab-panel" id="tab-album">
+    <div class="search-row" style="margin-bottom:16px;">
+      <input type="text" id="albumIdInput" placeholder="Enter Album ID (e.g. 70160165 or MPREb_DHWbS7Con8q)" style="flex:1;">
+      <button id="albumBtn">Load Album</button>
+    </div>
+    <div id="albumView"></div>
+  </div>
+
+  <div class="tab-panel" id="tab-playlist">
+    <div class="search-row" style="margin-bottom:16px;">
+      <input type="text" id="playlistIdInput" placeholder="Enter Playlist ID (e.g. 1134543272 or PL...)" style="flex:1;">
+      <button id="playlistBtn">Load Playlist</button>
+    </div>
+    <div id="playlistView"></div>
+  </div>
+
+  <div class="tab-panel" id="tab-charts">
+    <div id="chartsView"></div>
+  </div>
+</div>
+
+<!-- Audio Player Bar -->
+<div class="player-bar" id="playerBar">
+  <div class="now-playing">
+    <div class="np-title" id="npTitle">No track selected</div>
+    <div class="np-artist" id="npArtist"></div>
+  </div>
+  <audio id="audioPlayer" controls preload="auto"></audio>
+  <button class="close-player" id="closePlayer">&times;</button>
+</div>
+
+<script>
+const API = '';
+let currentSource = 'jiosaavn';
+let suggestionsTimer = null;
+
+const $ = id => document.getElementById(id);
+const audio = $('audioPlayer');
+const playerBar = $('playerBar');
+
+// --- Source Tabs ---
+document.querySelectorAll('.source-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.source-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentSource = tab.dataset.source;
+    $('searchInput').placeholder = currentSource === 'jiosaavn'
+      ? 'Search JioSaavn for songs, artists, albums...'
+      : 'Search YouTube Music for songs, artists, albums...';
+  });
+});
+
+// --- Nav Tabs ---
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    $(`tab-${tab.dataset.tab}`).classList.add('active');
+
+    if (tab.dataset.tab === 'charts') loadCharts();
+  });
+});
+
+// --- Search ---
+$('searchBtn').addEventListener('click', doSearch);
+$('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+$('searchInput').addEventListener('input', () => {
+  clearTimeout(suggestionsTimer);
+  const q = $('searchInput').value.trim();
+  if (q.length < 2) { $('suggestionsBox').classList.remove('show'); return; }
+  suggestionsTimer = setTimeout(() => loadSuggestions(q), 300);
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-row')) $('suggestionsBox').classList.remove('show');
+});
+
+async function loadSuggestions(q) {
+  try {
+    const r = await fetch(`${API}/suggestions?q=${encodeURIComponent(q)}&source=${currentSource}`);
+    if (!r.ok) return;
+    const data = await r.json();
+    const box = $('suggestionsBox');
+    if (!data.suggestions?.length) { box.classList.remove('show'); return; }
+    box.innerHTML = data.suggestions.map(s => `<div class="suggestion-item">${escapeHtml(s)}</div>`).join('');
+    box.classList.add('show');
+    box.querySelectorAll('.suggestion-item').forEach(el => {
+      el.addEventListener('click', () => {
+        $('searchInput').value = el.textContent;
+        box.classList.remove('show');
+        doSearch();
+      });
+    });
+  } catch {}
+}
+
+async function doSearch() {
+  const q = $('searchInput').value.trim();
+  if (!q) return;
+  $('suggestionsBox').classList.remove('show');
+  $('searchResults').innerHTML = '<div class="loading"><div class="spinner"></div>Searching...</div>';
+  try {
+    const r = await fetch(`${API}/search?q=${encodeURIComponent(q)}&source=${currentSource}`);
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.message || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    renderSearchResults(data);
+  } catch (e) {
+    $('searchResults').innerHTML = `<div class="error-box"><div class="er-title">Search failed</div>${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderSearchResults(data) {
+  const el = $('searchResults');
+  if (!data.results?.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">&#9835;</div>No results found</div>`;
+    return;
+  }
+  el.innerHTML = `<div style="color:var(--text2);font-size:13px;margin-bottom:12px;">
+    ${data.results.length} result${data.results.length > 1 ? 's' : ''} for "${escapeHtml(data.query)}" on ${data.source}
+  </div><div class="results-grid">${
+    data.results.map(t => `
+      <div class="track-card" onclick="playTrack('${escapeAttr(t.id)}', '${escapeAttr(t.title)}', '${escapeAttr(t.artist)}', '${escapeAttr(t.thumbnail)}', '${currentSource}')">
+        <img class="art" src="${t.thumbnail || ''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>♫</text></svg>'">
+        <div class="info">
+          <div class="title" title="${escapeAttr(t.title)}">${escapeHtml(t.title)}</div>
+          <div class="artist" title="${escapeAttr(t.artist)}">${escapeHtml(t.artist)}</div>
+          <div class="meta">
+            <span class="tag">${formatDur(t.duration_seconds)}</span>
+            ${t.album ? `<span class="tag">${escapeHtml(t.album)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `).join('')
+  }</div>`;
+}
+
+// --- Album ---
+$('albumBtn').addEventListener('click', loadAlbum);
+$('albumIdInput').addEventListener('keydown', e => { if (e.key === 'Enter') loadAlbum(); });
+
+async function loadAlbum() {
+  const id = $('albumIdInput').value.trim();
+  if (!id) return;
+  $('albumView').innerHTML = '<div class="loading"><div class="spinner"></div>Loading album...</div>';
+  try {
+    const r = await fetch(`${API}/album/${encodeURIComponent(id)}?source=${currentSource}`);
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.message || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    renderDetail(data, 'albumView');
+  } catch (e) {
+    $('albumView').innerHTML = `<div class="error-box"><div class="er-title">Failed to load album</div>${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// --- Playlist ---
+$('playlistBtn').addEventListener('click', loadPlaylist);
+$('playlistIdInput').addEventListener('keydown', e => { if (e.key === 'Enter') loadPlaylist(); });
+
+async function loadPlaylist() {
+  const id = $('playlistIdInput').value.trim();
+  if (!id) return;
+  $('playlistView').innerHTML = '<div class="loading"><div class="spinner"></div>Loading playlist...</div>';
+  try {
+    const r = await fetch(`${API}/playlist/${encodeURIComponent(id)}?source=${currentSource}`);
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.message || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    renderDetail(data, 'playlistView');
+  } catch (e) {
+    $('playlistView').innerHTML = `<div class="error-box"><div class="er-title">Failed to load playlist</div>${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderDetail(data, containerId) {
+  const el = $(containerId);
+  const header = `
+    <div class="detail-view">
+      <div class="detail-header">
+        <img src="${data.thumbnail || ''}" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>♫</text></svg>'">
+        <div class="info">
+          <h2>${escapeHtml(data.title || data.name || '')}</h2>
+          ${data.artist ? `<p>${escapeHtml(data.artist)}</p>` : ''}
+          ${data.owner ? `<p>by ${escapeHtml(data.owner)}</p>` : ''}
+          ${data.year ? `<p>${data.year}</p>` : ''}
+          ${data.song_count ? `<span class="badge">${data.song_count} tracks</span>` : ''}
+          ${data.duration_seconds ? `<span class="badge">${formatDur(data.duration_seconds)}</span>` : ''}
+        </div>
+      </div>
+      <div class="detail-tracks">
+        ${(data.tracks || []).map((t, i) => `
+          <div class="track-row" onclick="playTrack('${escapeAttr(t.id)}', '${escapeAttr(t.title)}', '${escapeAttr(t.artist)}', '${escapeAttr(t.thumbnail || data.thumbnail)}', '${currentSource}')">
+            <span class="num">${t.track_number || i + 1}</span>
+            <div class="track-info">
+              <div class="t-title">${escapeHtml(t.title)}</div>
+              <div class="t-artist">${escapeHtml(t.artist)}</div>
+            </div>
+            <span class="t-dur">${formatDur(t.duration_seconds)}</span>
+            <button class="play-btn">&#9654;</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  el.innerHTML = header + (data.tracks?.length > 8
+    ? `<div style="color:var(--text2);font-size:12px;text-align:center;">${data.tracks.length} tracks total</div>` : '');
+}
+
+// --- Charts ---
+async function loadCharts() {
+  const el = $('chartsView');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading charts...</div>';
+  try {
+    const r = await fetch(`${API}/charts?source=${currentSource}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    if (!data.charts?.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">&#9835;</div>No charts available</div>';
+      return;
+    }
+    el.innerHTML = `<div style="color:var(--text2);font-size:13px;margin-bottom:12px;">${data.charts.length} charts</div>
+      <div class="charts-grid">${
+        data.charts.map(c => `
+          <div class="chart-card" onclick="loadPlaylistById('${escapeAttr(c.id)}')">
+            <img src="${c.thumbnail || ''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>♫</text></svg>'">
+            <div class="c-title">${escapeHtml(c.title)}</div>
+            ${c.description ? `<div class="c-desc">${escapeHtml(c.description)}</div>` : ''}
+          </div>
+        `).join('')
+      }</div>`;
+  } catch (e) {
+    el.innerHTML = `<div class="error-box"><div class="er-title">Failed to load charts</div>${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function loadPlaylistById(id) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector('[data-tab="playlist"]').classList.add('active');
+  $('tab-playlist').classList.add('active');
+  $('playlistIdInput').value = id;
+  loadPlaylist();
+}
+
+// --- Playback ---
+async function playTrack(id, title, artist, thumbnail, source) {
+  $('npTitle').textContent = title || 'Unknown';
+  $('npArtist').textContent = `${artist || ''} \u00b7 ${source}`;
+  playerBar.classList.add('show');
+  audio.pause();
+  audio.removeAttribute('src');
+  audio.style.display = '';
+
+  if (source === 'ytmusic') {
+    $('npArtist').textContent = `${artist || ''} \u00b7 YouTube Music`;
+    const ytUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
+    showToast(`YouTube Music cannot stream directly. Opening "${title}" in YouTube...`);
+    window.open(ytUrl, '_blank');
+    playerBar.classList.remove('show');
+    return;
+  }
+
+  try {
+    audio.setAttribute('src', `${API}/track/${encodeURIComponent(id)}/play?source=${source}`);
+    audio.load();
+    await audio.play();
+  } catch (e) {
+    showToast(`Playback failed: ${e.message || 'Could not play this track'}`);
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.style.display = 'none';
+    $('npTitle').textContent = 'No track selected';
+    $('npArtist').textContent = '';
+  }
+}
+
+audio.addEventListener('error', () => {
+  const errMsg = audio.error?.message || audio.error?.code || 'Unknown error';
+  showToast(`Audio error: ${errMsg}. The stream might be unavailable.`);
+  audio.pause();
+  audio.removeAttribute('src');
+  audio.style.display = 'none';
+  $('npTitle').textContent = 'No track selected';
+  $('npArtist').textContent = '';
+});
+
+$('closePlayer').addEventListener('click', () => {
+  audio.pause();
+  audio.removeAttribute('src');
+  playerBar.classList.remove('show');
+});
+
+// --- Helpers ---
+function formatDur(s) {
+  if (!s || s <= 0) return '--:--';
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function escapeAttr(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function showToast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  Object.assign(t.style, {
+    position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+    background: '#22222e', color: '#e8e8f0', padding: '12px 24px',
+    borderRadius: '8px', fontSize: '14px', zIndex: '300',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.6)', maxWidth: '90%', textAlign: 'center',
+    border: '1px solid #2a2a3a'
+  });
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 5000);
+}
+
+// Load charts on page load
+loadCharts();
+</script>
+</body>
+</html>
