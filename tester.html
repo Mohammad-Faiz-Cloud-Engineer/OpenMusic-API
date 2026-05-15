@@ -673,10 +673,6 @@ function buildUrl() {
     url = url.replace(`{${k}}`, encodeURIComponent(v));
   }
 
-  const queryIdx = url.indexOf('?');
-  const queryParams = ep.params.filter(p => url.includes(`?${p.key}=`) || url.includes(`&${p.key}=`));
-  const hasQuery = queryParams.length > 0;
-
   return url;
 }
 
