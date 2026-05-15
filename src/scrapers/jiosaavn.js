@@ -123,7 +123,10 @@ async function getStreamUrl(id) {
         bitrate,  // FIX: string, not number
       });
       if (authData?.auth_url && authData.status === 'success') {
-        resolvedUrl = authData.auth_url;
+        // web.saavncdn.com requires Referer/User-Agent headers that mobile
+        // clients (expo-av) don't send. aac.saavncdn.com is the same CDN
+        // but accepts headerless requests — just swap the hostname.
+        resolvedUrl = authData.auth_url.replace('web.saavncdn.com', 'aac.saavncdn.com');
         // FIX: authData.type can be 'mp4', 'webm', or absent; normalise properly
         format = authData.type === 'mp4' ? 'm4a' : (authData.type || 'm4a');
         quality = `${bitrate}kbps`;
@@ -148,6 +151,8 @@ async function getStreamUrl(id) {
       // to avoid replacing parts of the CDN hostname
       const qualitySuffix = has320 ? '320' : '160';
       resolvedUrl = resolvedUrl.replace(/(_\d+)(\.(?:mp4|m4a|webm))/, `_${qualitySuffix}$2`);
+      // Rewrite to aac.saavncdn.com so headerless clients can stream directly
+      resolvedUrl = resolvedUrl.replace('web.saavncdn.com', 'aac.saavncdn.com');
       quality = extractQuality(resolvedUrl);
       format = resolvedUrl.includes('.webm') ? 'webm' : 'm4a';
       // expiresAt stays null; decrypt path has no expiry info
