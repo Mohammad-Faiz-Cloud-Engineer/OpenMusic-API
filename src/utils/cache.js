@@ -3,11 +3,8 @@ const NodeCache = require('node-cache');
 // Search & suggestions: 5 min TTL
 const searchCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
-// Stream URLs: 25 min TTL
-// JioSaavn auth tokens typically expire in ~1 hour, but the route layer
-// does its own expiry check using the expires_at field for early eviction.
-// 25 min ensures stale entries are evicted even when expires_at is null
-// (DES decrypt fallback path has no expiry information).
+// Stream URLs: 25 min TTL (auth tokens last ~1 hour; routes evict early via expires_at).
+// When expires_at is missing (DES-decrypt fallback), this TTL is the only expiry guard.
 const streamCache = new NodeCache({ stdTTL: 1500, checkperiod: 120 });
 
 // Album / Playlist / Charts: 10 min TTL

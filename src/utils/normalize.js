@@ -89,10 +89,10 @@ function decodeHtmlEntities(str) {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&apos;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&#x2F;/g, '/')
-    // Hex numeric character references (e.g. &#x2019; → ')
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#x27;/gi, "'")
+    .replace(/&#x2F;/gi, '/')
+    // Hex numeric character references (e.g. &#x2019; / &#X2019; → ')
+    .replace(/&#x([0-9a-fA-F]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
     // Decimal numeric character references (e.g. &#8217; → ')
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
     .replace(/&amp;/g, '&');
@@ -412,4 +412,8 @@ module.exports = {
   normalizePlaylist,
   normalizeSuggestions,
   normalizeCharts,
+  decodeHtmlEntities,
+  pickThumbnail,
+  extractJioSaavnThumbnail,
+  extractJioSaavnArtist,
 };

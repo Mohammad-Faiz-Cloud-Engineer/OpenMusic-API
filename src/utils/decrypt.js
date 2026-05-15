@@ -5,6 +5,7 @@ function decryptMediaUrl(encryptedUrl) {
     throw new Error('Invalid encrypted URL');
   }
 
+  // JioSaavn's fixed DES key for encrypted_media_url (public, not a server secret).
   const key = CryptoJS.enc.Utf8.parse('38346591');
   const encrypted = CryptoJS.lib.CipherParams.create({
     ciphertext: CryptoJS.enc.Base64.parse(encryptedUrl),

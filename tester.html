@@ -689,15 +689,20 @@ function getParamValues() {
 function buildUrl() {
   const ep = ENDPOINTS[currentSource].find(e => e.id === currentEndpoint);
   if (!ep) return null;
-  const base = getBase();
+  const apiBase = resolveApiBase();
+  if (!apiBase) return null;
   const params = getParamValues();
-  let url = base + ep.path;
+  let path = ep.path;
 
   for (const [k, v] of Object.entries(params)) {
-    url = url.replace(`{${k}}`, encodeURIComponent(v));
+    path = path.replace(`{${k}}`, encodeURIComponent(v));
   }
 
-  return url;
+  try {
+    return new URL(path, apiBase).href;
+  } catch {
+    return null;
+  }
 }
 
 function validateParams() {

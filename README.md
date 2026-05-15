@@ -51,6 +51,14 @@ npm start
 
 Opens on `http://localhost:3000`. Hit `/health` to check.
 
+### Tests
+
+```bash
+npm test
+```
+
+Runs unit tests for the normalizer (JioSaavn/YT Music response shapes, HTML entities, thumbnails) and decrypt validation.
+
 ---
 
 ## API Endpoints
