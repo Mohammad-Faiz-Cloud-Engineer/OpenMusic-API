@@ -151,16 +151,37 @@ function jioSaavnSearchResults(data) {
 }
 
 // ── YT Music song normalizer ──────────────────────────────────────────────
+// Handles SongDetailed shape from searchSongs() / getAlbum().songs:
+//   { type: 'SONG', videoId, name, artist: { artistId, name },
+//     album: { albumId, name } | null, duration: number | null, thumbnails[] }
+// Also handles PlaylistVideo shape from getPlaylistVideos():
+//   { type: 'SONG', videoId, title, artists: { artistId, name },
+//     duration: number, thumbnails[] }
+// FIX: the old normalizer used item.artists?.[0] (array) but SongDetailed
+// has item.artist (single object). PlaylistVideo uses item.artists (single
+// object too, not an array — confusingly named). Handle both.
 function ytmusicSong(item) {
   const tn = item.thumbnails || item.thumbnail;
-  const artist = item.artist?.name || item.artists?.[0]?.name || item.artistName || 'Unknown';
-  const album = item.album?.name || item.albumName || null;
+
+  // artist: SongDetailed uses item.artist (object), PlaylistVideo uses item.artists (object)
+  const artistObj = item.artist || item.artists || null;
+  const artist = artistObj?.name || 'Unknown';
+
+  // album: SongDetailed has item.album?.name, PlaylistVideo has no album field
+  const album = item.album?.name || null;
+
+  // duration: the library returns seconds as a plain number (not totalSeconds object)
+  // FIX: old code tried item.duration?.totalSeconds which is always undefined here
+  const duration = typeof item.duration === 'number'
+    ? item.duration
+    : parseInt(item.duration || '0', 10) || 0;
+
   return {
-    id: item.videoId || item.id,
+    id: item.videoId || item.id || '',
     title: item.name || item.title || '',
     artist,
     album,
-    duration_seconds: parseInt(item.duration?.totalSeconds || item.duration || item.duration_seconds || '0', 10) || 0,
+    duration_seconds: duration,
     thumbnail: pickThumbnail(tn),
     language: null,
     has_lyrics: false,
@@ -169,9 +190,15 @@ function ytmusicSong(item) {
   };
 }
 
+// FIX: searchSongs() returns SongDetailed[] — all items have type === 'SONG'.
+// The old filter `d.type === 'SONG' || !d.type` was fine for search() (mixed)
+// but now we use searchSongs() so every item is a song. Keep the filter
+// as a safety net in case the mixed search() result is ever passed here.
 function ytmusicSearchResults(data) {
   if (!data || !Array.isArray(data)) return [];
-  return data.filter(d => d.type === 'SONG' || !d.type).map(ytmusicSong);
+  return data
+    .filter(d => d.type === 'SONG' || d.type === 'VIDEO' || !d.type)
+    .map(ytmusicSong);
 }
 
 // ── Exported normalizers ──────────────────────────────────────────────────
@@ -233,10 +260,15 @@ function normalizeAlbum(source, data) {
     };
   }
 
-  // YT Music album
+  // YT Music album — AlbumFull shape:
+  // { type:'ALBUM', albumId, playlistId, name, artist:{artistId,name},
+  //   year: number|null, thumbnails[], songs: SongDetailed[] }
+  // FIX: old code tried data.artists?.[0]?.name and data.artistName —
+  // neither exists. AlbumFull has a single data.artist object.
   const tn = pickThumbnail(data.thumbnails || data.thumbnail);
-  const artist = data.artists?.[0]?.name || data.artist?.name || data.artistName || 'Unknown';
+  const artist = data.artist?.name || 'Unknown';
   let tracks = [];
+  // AlbumFull uses data.songs (not data.tracks)
   const songList = data.songs || data.tracks || [];
   if (Array.isArray(songList)) {
     tracks = songList.map((t, i) => ({
@@ -246,6 +278,7 @@ function normalizeAlbum(source, data) {
   }
   return {
     source,
+    // FIX: AlbumFull uses albumId (not browseId or id)
     id: data.albumId || data.browseId || data.id || '',
     title: data.name || data.title || '',
     artist,
@@ -284,9 +317,16 @@ function normalizePlaylist(source, data) {
     };
   }
 
-  // YT Music playlist
+  // YT Music playlist — merged shape from scraper:
+  // PlaylistFull: { type:'PLAYLIST', playlistId, name, artist:{artistId,name},
+  //                 videoCount, thumbnails[] }
+  // + tracks: PlaylistVideo[] injected by the scraper via getPlaylistVideos()
+  // FIX: old code tried data.owner / data.ownerName / data.artists?.[0]?.name —
+  // none of these exist on PlaylistFull. The owner is data.artist.name.
+  // FIX: old code tried data.tracks || data.songs — PlaylistFull has neither.
+  //   The scraper now merges getPlaylistVideos() result as data.tracks.
   const tn = pickThumbnail(data.thumbnails || data.thumbnail);
-  const owner = data.owner || data.ownerName || data.artists?.[0]?.name || 'Unknown';
+  const owner = data.artist?.name || data.owner || data.ownerName || 'Unknown';
   let tracks = [];
   const plSongs = data.tracks || data.songs || [];
   if (Array.isArray(plSongs)) {
@@ -294,10 +334,12 @@ function normalizePlaylist(source, data) {
   }
   return {
     source,
+    // FIX: PlaylistFull uses playlistId (not browseId or id)
     id: data.playlistId || data.browseId || data.id || '',
     title: data.name || data.title || '',
     owner,
-    song_count: data.trackCount || tracks.length || 0,
+    // FIX: PlaylistFull uses videoCount (not trackCount or song_count)
+    song_count: data.videoCount || data.trackCount || tracks.length || 0,
     duration_seconds: tracks.reduce((sum, t) => sum + (t.duration_seconds || 0), 0),
     thumbnail: tn,
     tracks,
@@ -317,10 +359,13 @@ function normalizeSuggestions(source, data, query) {
     return { source, query, suggestions };
   }
 
+  // YT Music suggestions — getSearchSuggestions() returns string[] directly
+  // FIX: old code mapped s.text || s.name || s.query — these fields don't
+  // exist on strings. The array IS the suggestions list already.
   let suggestions = [];
   if (Array.isArray(data)) {
     suggestions = data
-      .map(s => (typeof s === 'string' ? s : s.text || s.name || s.query))
+      .map(s => (typeof s === 'string' ? s : s.text || s.name || s.query || ''))
       .filter(Boolean);
   }
   return { source, query, suggestions };
@@ -352,12 +397,41 @@ function normalizeCharts(source, data) {
     return { source, charts };
   }
 
-  // YT Music charts
-  let tracks = [];
+  // YT Music charts — two possible inputs:
+  // 1. getHomeSections() → HomeSection[]: [{ title, contents: (AlbumDetailed|PlaylistDetailed|SongDetailed)[] }]
+  // 2. searchSongs() fallback → SongDetailed[]
+  // FIX: old code only handled SongDetailed[] and wrapped everything in a
+  // single 'trending' chart. Now we map each HomeSection to a chart entry.
   if (Array.isArray(data)) {
-    tracks = data.filter(d => d.type === 'SONG' || !d.type).map(ytmusicSong);
+    // Check if it's HomeSection[] (objects with title + contents)
+    if (data.length > 0 && data[0]?.contents !== undefined) {
+      // HomeSection[] shape
+      const charts = data
+        .filter(section => section.title && Array.isArray(section.contents) && section.contents.length > 0)
+        .map(section => {
+          // Use the first PLAYLIST or ALBUM in the section as the chart entry
+          const playlist = section.contents.find(c => c.type === 'PLAYLIST');
+          const album = section.contents.find(c => c.type === 'ALBUM');
+          const representative = playlist || album || section.contents[0];
+          return {
+            id: representative?.playlistId || representative?.albumId || representative?.videoId || '',
+            title: section.title,
+            description: `${section.contents.length} items`,
+            thumbnail: pickThumbnail(representative?.thumbnails),
+          };
+        })
+        .filter(c => c.id); // drop sections with no usable ID
+      return { source, charts };
+    }
+
+    // SongDetailed[] fallback shape
+    const tracks = data
+      .filter(d => d.type === 'SONG' || d.type === 'VIDEO' || !d.type)
+      .map(ytmusicSong);
+    return { source, charts: [{ id: 'trending', title: 'Trending', description: '', thumbnail: null, tracks }] };
   }
-  return { source, charts: [{ id: 'trending', title: 'Trending', description: '', thumbnail: null, tracks }] };
+
+  return { source, charts: [] };
 }
 
 module.exports = {
