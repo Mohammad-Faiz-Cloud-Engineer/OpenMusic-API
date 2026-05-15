@@ -1,16 +1,14 @@
 const {
-  normalizeSearch, normalizeStream, normalizeAlbum, normalizePlaylist,
+  normalizeSearch, normalizeAlbum, normalizePlaylist,
   normalizeSuggestions, normalizeCharts,
 } = require('../utils/normalize');
 
 const TIMEOUT_MS = 15000;
 
 // ── Singleton client ──────────────────────────────────────────────────────
-// FIX: the old singleton never recovered from initialization failures.
-// If initialize() threw once, _ytmusic stayed null forever and every
-// subsequent call would re-throw the same init error without retrying.
-// Now we track the init promise so concurrent calls don't race, and we
-// clear the singleton on any error so the next request gets a fresh attempt.
+// The singleton tracks an init promise so concurrent calls don't race.
+// On any initialization error, both _ytmusic and _initPromise are cleared
+// so the next request triggers a fresh attempt rather than hanging forever.
 let _ytmusic = null;
 let _initPromise = null;
 
@@ -31,9 +29,8 @@ async function getClient() {
 
   _initPromise = (async () => {
     try {
-      // FIX: ytmusic-api is ESM-only. Dynamic import is correct, but the
-      // old code accessed .default which works for the default export.
-      // Verified against the package's export map — this is correct.
+      // ytmusic-api is ESM-only — dynamic import is required here.
+      // .default accesses the default export from the ESM module.
       const { default: YTMusic } = await import('ytmusic-api');
       const client = new YTMusic();
       await withTimeout(client.initialize(), TIMEOUT_MS);
@@ -54,30 +51,20 @@ async function getClient() {
 }
 
 // ── Search ────────────────────────────────────────────────────────────────
-// FIX: client.search() returns a mixed array of SONG | VIDEO | ALBUM |
-// ARTIST | PLAYLIST items. The old normalizer filtered by type === 'SONG'
-// OR !type — but every item from this library has a type field, so the
-// !type branch never matched anything useful. The filter is now explicit.
-// Also use client.searchSongs() which returns only songs and is faster.
+// searchSongs() returns SongDetailed[] — only songs, no mixed types.
 async function search(query) {
   const client = await getClient();
-  // searchSongs returns SongDetailed[] — only songs, no mixed types
   const results = await withTimeout(client.searchSongs(query), TIMEOUT_MS);
   return normalizeSearch('ytmusic', results, query);
 }
 
 // ── Track metadata ────────────────────────────────────────────────────────
-// FIX: the old getStreamUrl() just returned a normalizeStream() with all
-// nulls — it was a no-op that cached a useless object. Now we fetch real
-// track metadata via getSong() so the /track/:id response is actually useful
-// (title, artist, duration, thumbnail, youtube_url).
-// stream_url stays null — YT Music doesn't give direct audio URLs.
+// Fetches real track metadata via getSong() so the /track/:id response
+// includes title, artist, duration, thumbnail, and youtube_url.
+// stream_url stays null — YT Music does not provide direct audio URLs.
 async function getTrackDetails(videoId) {
   const client = await getClient();
   try {
-    // getSong returns SongFull which includes formats/adaptiveFormats
-    // We only use the metadata fields — not the format URLs (those require
-    // additional auth that this library doesn't handle for streaming)
     const data = await withTimeout(client.getSong(videoId), TIMEOUT_MS);
     return {
       id: data.videoId,
@@ -111,11 +98,8 @@ async function getStreamUrl(videoId) {
 }
 
 // ── Album ─────────────────────────────────────────────────────────────────
-// FIX: getAlbum() returns AlbumFull which has:
-//   albumId, playlistId, name, artist { artistId, name }, year, thumbnails[], songs[]
-// The old normalizeAlbum tried data.artists?.[0] and data.artistName which
-// don't exist on this shape — artist is a single object, not an array.
-// Fixed in normalizeAlbum (normalize.js). Scraper just passes data through.
+// getAlbum() returns AlbumFull:
+//   { albumId, playlistId, name, artist { artistId, name }, year, thumbnails[], songs[] }
 async function getAlbum(albumId) {
   const client = await getClient();
   const data = await withTimeout(client.getAlbum(albumId), TIMEOUT_MS);
@@ -124,11 +108,8 @@ async function getAlbum(albumId) {
 }
 
 // ── Playlist ──────────────────────────────────────────────────────────────
-// FIX: getPlaylist() returns PlaylistFull which has:
-//   playlistId, name, artist { artistId, name }, videoCount, thumbnails[]
-// Note: PlaylistFull does NOT include tracks — use getPlaylistVideos() for that.
-// The old code passed PlaylistFull to normalizePlaylist which tried data.tracks
-// and data.songs — both undefined on PlaylistFull. Result was always 0 tracks.
+// getPlaylist() returns PlaylistFull which does NOT include tracks.
+// getPlaylistVideos() is called separately and merged in.
 async function getPlaylist(playlistId) {
   const client = await getClient();
 
@@ -146,11 +127,8 @@ async function getPlaylist(playlistId) {
 }
 
 // ── Suggestions ───────────────────────────────────────────────────────────
-// FIX: the catch block swallowed all errors including network failures,
-// same issue as the JioSaavn scraper. Re-throw non-recoverable errors.
-// FIX: getSearchSuggestions returns string[] directly, not objects —
-// the old normalizeSuggestions mapped s.text || s.name || s.query which
-// worked by accident via the `s` fallback, but was misleading.
+// Re-throws network/timeout errors rather than silently falling back.
+// Falls back to song name extraction only for expected library errors.
 async function getSuggestions(query) {
   const client = await getClient();
   try {
@@ -177,11 +155,8 @@ async function getSuggestions(query) {
 }
 
 // ── Charts ────────────────────────────────────────────────────────────────
-// FIX: the old implementation searched for 'trending music' which returns
-// a mixed bag of results and is not a real charts endpoint.
-// Use getHomeSections() which returns actual curated home sections from
-// YouTube Music — much closer to real charts/trending content.
-// Fall back to the search approach if getHomeSections fails.
+// Uses getHomeSections() for actual curated home sections from YT Music.
+// Falls back to a trending search if getHomeSections fails.
 async function getCharts() {
   const client = await getClient();
   try {
