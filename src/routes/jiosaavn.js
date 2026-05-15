@@ -6,6 +6,19 @@ const { trim } = require('../utils/normalize');
 
 const router = Router();
 
+// ── Stream URL expiry helper ──────────────────────────────────────────────
+// Returns true if the cached stream data has an expires_at field that is
+// within 3 minutes of expiring (or already expired). Returns false if the
+// data has no expiry info (DES fallback path — trust the cache TTL).
+const EXPIRY_BUFFER_MS = 3 * 60 * 1000; // 3 min safety buffer
+
+function isStreamExpired(streamData) {
+  if (!streamData?.expires_at) return false; // no expiry info — trust cache TTL
+  const expiresAt = new Date(streamData.expires_at).getTime();
+  if (isNaN(expiresAt)) return true; // invalid date — treat as expired
+  return expiresAt - Date.now() <= EXPIRY_BUFFER_MS;
+}
+
 // ── Search ────────────────────────────────────────────────────────────────
 router.get('/search', async (req, res) => {
   const q = trim(req.query.q);
@@ -135,21 +148,14 @@ router.get('/track/:id', async (req, res) => {
   }
 
   const cacheKey = `stream:jiosaavn:${id}`;
-  const cached = streamCache.get(cacheKey);
+  let cached = streamCache.get(cacheKey);
 
-  // FIX: validate cached stream URL hasn't expired before returning it.
-  // The cache TTL is 30 min but JioSaavn auth tokens can expire sooner.
   if (cached) {
-    if (cached.expires_at) {
-      const expiresAt = new Date(cached.expires_at);
-      const bufferMs = 3 * 60 * 1000; // 3 min safety buffer
-      if (expiresAt.getTime() - Date.now() > bufferMs) {
-        return res.json(cached);
-      }
+    if (isStreamExpired(cached)) {
       // Expired — evict from cache and re-fetch
       streamCache.del(cacheKey);
+      cached = null;
     } else {
-      // No expiry info (decrypt fallback) — trust the 30 min cache TTL
       return res.json(cached);
     }
   }
@@ -182,18 +188,12 @@ router.get('/track/:id/play', async (req, res) => {
   }
 
   try {
-    // FIX: reuse the same expiry-aware cache check as /track/:id instead of
-    // always calling getStreamUrl() fresh on every /play request.
     const cacheKey = `stream:jiosaavn:${id}`;
     let streamData = streamCache.get(cacheKey);
 
-    if (streamData?.expires_at) {
-      const expiresAt = new Date(streamData.expires_at);
-      const bufferMs = 3 * 60 * 1000;
-      if (expiresAt.getTime() - Date.now() <= bufferMs) {
-        streamCache.del(cacheKey);
-        streamData = null;
-      }
+    if (streamData && isStreamExpired(streamData)) {
+      streamCache.del(cacheKey);
+      streamData = null;
     }
 
     if (!streamData) {
@@ -215,7 +215,8 @@ router.get('/track/:id/play', async (req, res) => {
         'Referer': 'https://www.jiosaavn.com/',
       },
       timeout: 30000,
-      // FIX: disable axios response size limit so large audio files don't get cut off
+      // Disable axios response size limit so large audio files don't get cut off.
+      // responseType: 'stream' means data is piped, not buffered in memory.
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
     };
@@ -235,7 +236,7 @@ router.get('/track/:id/play', async (req, res) => {
     if (cdnRes.headers['accept-ranges']) {
       res.set('Accept-Ranges', cdnRes.headers['accept-ranges']);
     } else {
-      // FIX: always advertise byte range support so players can seek
+      // Always advertise byte range support so players can seek
       res.set('Accept-Ranges', 'bytes');
     }
     if (range && cdnRes.headers['content-range']) {
