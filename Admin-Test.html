@@ -385,7 +385,7 @@ function escapeAttr(s) {
 function formatDur(s) {
   if (!s || s <= 0) return '--:--';
   const m = Math.floor(s / 60);
-  const sec = s % 60;
+  const sec = Math.floor(s % 60);
   return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
@@ -462,7 +462,7 @@ async function doSearch() {
 function renderResults(data) {
   const tracks = data.results || [];
   RESULTS_HEADER.style.display = tracks.length ? 'flex' : 'none';
-  RESULTS_QUERY.textContent = escapeHtml(data.query);
+  RESULTS_QUERY.textContent = data.query || '';
   RESULTS_COUNT.textContent = `${tracks.length} result${tracks.length !== 1 ? 's' : ''} on ${data.source}`;
 
   if (!tracks.length) {
