@@ -70,7 +70,7 @@ router.get('/album/:id', async (req, res) => {
     metadataCache.set(cacheKey, result);
     res.json(result);
   } catch (err) {
-    if (err.message?.includes('not found')) {
+    if (err.message?.includes('not found') || err.message?.includes('not_found')) {
       return res.status(404).json({ error: 'album_not_found', source: 'jiosaavn', message: err.message });
     }
     if (err.message?.includes('unavailable') || err.message?.includes('timed out')) {
@@ -97,7 +97,7 @@ router.get('/playlist/:id', async (req, res) => {
     metadataCache.set(cacheKey, result);
     res.json(result);
   } catch (err) {
-    if (err.message?.includes('not found')) {
+    if (err.message?.includes('not found') || err.message?.includes('not_found')) {
       return res.status(404).json({ error: 'playlist_not_found', source: 'jiosaavn', message: err.message });
     }
     if (err.message?.includes('unavailable') || err.message?.includes('timed out')) {
@@ -136,17 +136,33 @@ router.get('/track/:id', async (req, res) => {
 
   const cacheKey = `stream:jiosaavn:${id}`;
   const cached = streamCache.get(cacheKey);
-  if (cached) return res.json(cached);
+
+  // FIX: validate cached stream URL hasn't expired before returning it.
+  // The cache TTL is 30 min but JioSaavn auth tokens can expire sooner.
+  if (cached) {
+    if (cached.expires_at) {
+      const expiresAt = new Date(cached.expires_at);
+      const bufferMs = 3 * 60 * 1000; // 3 min safety buffer
+      if (expiresAt.getTime() - Date.now() > bufferMs) {
+        return res.json(cached);
+      }
+      // Expired — evict from cache and re-fetch
+      streamCache.del(cacheKey);
+    } else {
+      // No expiry info (decrypt fallback) — trust the 30 min cache TTL
+      return res.json(cached);
+    }
+  }
 
   try {
     const result = await jiosaavn.getStreamUrl(id);
     streamCache.set(cacheKey, result);
     res.json(result);
   } catch (err) {
-    if (err.message?.includes('No encrypted media') || err.message?.includes('not found')) {
+    if (err.message?.includes('No encrypted media') || err.message?.includes('not found') || err.message?.includes('Song not found')) {
       return res.status(404).json({ error: 'track_not_found', source: 'jiosaavn', message: err.message });
     }
-    if (err.message?.includes('Failed to decrypt')) {
+    if (err.message?.includes('Failed to decrypt') || err.message?.includes('decryption')) {
       console.error('[jiosaavn] decrypt error:', err.message);
       return res.status(500).json({ error: 'decryption_failed', source: 'jiosaavn', message: 'Failed to decrypt stream URL' });
     }
@@ -166,21 +182,42 @@ router.get('/track/:id/play', async (req, res) => {
   }
 
   try {
-    const result = await jiosaavn.getStreamUrl(id);
-    if (!result.stream_url) {
+    // FIX: reuse the same expiry-aware cache check as /track/:id instead of
+    // always calling getStreamUrl() fresh on every /play request.
+    const cacheKey = `stream:jiosaavn:${id}`;
+    let streamData = streamCache.get(cacheKey);
+
+    if (streamData?.expires_at) {
+      const expiresAt = new Date(streamData.expires_at);
+      const bufferMs = 3 * 60 * 1000;
+      if (expiresAt.getTime() - Date.now() <= bufferMs) {
+        streamCache.del(cacheKey);
+        streamData = null;
+      }
+    }
+
+    if (!streamData) {
+      streamData = await jiosaavn.getStreamUrl(id);
+      streamCache.set(cacheKey, streamData);
+    }
+
+    if (!streamData.stream_url) {
       return res.status(404).json({ error: 'no_stream', message: 'No playable stream URL found for this track' });
     }
 
     const range = req.headers.range;
     const axiosConfig = {
       method: 'get',
-      url: result.stream_url,
+      url: streamData.stream_url,
       responseType: 'stream',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://www.jiosaavn.com/',
       },
       timeout: 30000,
+      // FIX: disable axios response size limit so large audio files don't get cut off
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
     };
 
     if (range) {
@@ -197,6 +234,9 @@ router.get('/track/:id/play', async (req, res) => {
     }
     if (cdnRes.headers['accept-ranges']) {
       res.set('Accept-Ranges', cdnRes.headers['accept-ranges']);
+    } else {
+      // FIX: always advertise byte range support so players can seek
+      res.set('Accept-Ranges', 'bytes');
     }
     if (range && cdnRes.headers['content-range']) {
       res.set('Content-Range', cdnRes.headers['content-range']);
@@ -208,9 +248,10 @@ router.get('/track/:id/play', async (req, res) => {
     cdnRes.data.on('error', (streamErr) => {
       console.error(`[jiosaavn] proxy stream error for ${id}:`, streamErr.message);
       if (!res.headersSent) {
-        return res.status(502).json({ error: 'proxy_stream_error', message: `Stream error: ${streamErr.message}` });
+        res.status(502).json({ error: 'proxy_stream_error', message: `Stream error: ${streamErr.message}` });
+      } else {
+        res.end();
       }
-      res.end();
     });
 
     req.on('close', () => {
