@@ -303,7 +303,7 @@ Browser / App → Express → Scraper (JioSaavn / YT Music) → Normalizer → C
 |---|---|---|
 | Search / Suggestions | 5 min | `/search`, `/suggestions` |
 | Album / Playlist / Charts | 10 min | `/album`, `/playlist`, `/charts` |
-| Stream URLs | 30 min | `/track/:id` |
+| Stream URLs | 25 min | `/track/:id` |
 
 ---
 
