@@ -9,6 +9,8 @@ app_port: 7860
 
 # OpenMusic API
 
+[![Tests](https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API/actions/workflows/test.yml/badge.svg)](https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API/actions/workflows/test.yml)
+
 A unified music API that scrapes metadata and streams from **JioSaavn** and **YouTube Music**. No API keys, no sign-up, no database. Just a JSON API and a built-in browser UI.
 
 **Two APIs in one:**
