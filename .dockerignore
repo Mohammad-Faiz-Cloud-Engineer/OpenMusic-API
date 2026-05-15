@@ -11,3 +11,7 @@ dist
 build
 coverage
 .nyc_output
+
+# Developer/admin test tools — not needed in the image
+tester.html
+Admin-Test.html
