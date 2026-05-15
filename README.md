@@ -14,8 +14,8 @@ app_port: 7860
 A unified music API that scrapes metadata and streams from **JioSaavn** and **YouTube Music**. No API keys, no sign-up, no database. Just a JSON API and a built-in browser UI.
 
 **Two APIs in one:**
-- `/jiosaavn/*` — search, stream, and proxy audio from JioSaavn
-- `/ytmusic/*` — search and browse YouTube Music (no streaming, opens YouTube instead)
+- `/jiosaavn/*`: search, stream, and proxy audio from JioSaavn
+- `/ytmusic/*`: search and browse YouTube Music (no streaming, opens YouTube instead)
 
 ---
 
@@ -86,7 +86,7 @@ Runs unit tests for the normalizer (JioSaavn/YT Music response shapes, HTML enti
 | `GET` | `/ytmusic/album/:id` | Album details + track list |
 | `GET` | `/ytmusic/playlist/:id` | Playlist details + track list |
 | `GET` | `/ytmusic/charts` | Trending music |
-| `GET` | `/ytmusic/track/:id` | Get track metadata (no stream URL — opens YouTube) |
+| `GET` | `/ytmusic/track/:id` | Get track metadata (no stream URL; opens YouTube) |
 
 > **Note:** YouTube Music doesn't give out direct audio URLs. The `/track/:id` endpoint returns metadata only. Use the `videoId` to open `https://www.youtube.com/watch?v=<videoId>`.
 
@@ -151,7 +151,7 @@ const ytPl = await fetch(`${BASE}/ytmusic/playlist/PL...`);
 const ytPlData = await ytPl.json();
 console.log(ytPlData);
 
-// Track metadata (no stream URL — open in YouTube)
+// Track metadata (no stream URL; open in YouTube)
 const ytTrack = await fetch(`${BASE}/ytmusic/track/dQw4w9WgXcQ`);
 const ytTrackData = await ytTrack.json();
 console.log(ytTrackData);
@@ -319,7 +319,7 @@ Browser / App → Express → Scraper (JioSaavn / YT Music) → Normalizer → C
 
 ## Built-in UI
 
-Open the root URL (`/`) in a browser — there's a dark-themed single-page app for browsing, searching, and playing music without writing any API calls. All vanilla JS, zero frameworks.
+Open the root URL (`/`) in a browser. There's a dark-themed single-page app for browsing, searching, and playing music without writing any API calls. All vanilla JS, zero frameworks.
 
 ---
 
@@ -359,6 +359,6 @@ No other config is needed. Everything (JioSaavn base URL, DES key, user agents) 
 
 ## Why This Exists
 
-Personal music API proxy. Scrapes what public APIs don't offer. Streams what streaming apps won't give you directly. Use at your own risk — no warranty, no guarantees.
+Personal music API proxy. Scrapes what public APIs don't offer. Streams what streaming apps won't give you directly. Use at your own risk; no warranty, no guarantees.
 
 **BSD 2-Clause License.** Do whatever you want, but don't blame me if it breaks.

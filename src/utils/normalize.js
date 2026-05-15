@@ -77,7 +77,7 @@ function extractJioSaavnArtist(item) {
 }
 
 // ── HTML entity decoder ───────────────────────────────────────────────────
-// JioSaavn returns titles with HTML entities — decode them without a DOM
+// JioSaavn returns titles with HTML entities; decode them without a DOM
 // (Node.js safe). Handles both decimal NCRs (&#39;) and hex NCRs (&#x2019;).
 function decodeHtmlEntities(str) {
   if (!str || typeof str !== 'string') return str;
@@ -99,8 +99,8 @@ function decodeHtmlEntities(str) {
 }
 
 // ── JioSaavn song normalizer ──────────────────────────────────────────────
-// id fallback uses perma_url slug — never the encrypted_media_url blob.
-// title can have HTML entities — decoded here.
+// id fallback uses perma_url slug, never the encrypted_media_url blob.
+// title can have HTML entities decoded here.
 function jioSaavnSong(item) {
   let id = item.id || '';
   if (!id && item.perma_url) {
@@ -118,12 +118,12 @@ function jioSaavnSong(item) {
     language: item.more_info?.language || item.language || null,
     has_lyrics: item.more_info?.has_lyrics === 'true' || item.has_lyrics === 'true' || false,
     explicit: item.explicit_content === '1' || item.explicit_content === 1 || false,
-    stream_url: null,  // always null — caller must hit /track/:id
+    stream_url: null,  // always null; caller must hit /track/:id
   };
 }
 
 // ── JioSaavn search results parser ───────────────────────────────────────
-// Filter out non-song results (albums, artists, playlists) — only keep
+// Filter out non-song results (albums, artists, playlists); only keep
 // items with a duration field.
 function jioSaavnSearchResults(data) {
   let results = [];
@@ -247,7 +247,7 @@ function normalizeAlbum(source, data) {
     };
   }
 
-  // YT Music album — AlbumFull shape:
+  // YT Music album (AlbumFull shape):
   // { type:'ALBUM', albumId, playlistId, name, artist:{artistId,name},
   //   year: number|null, thumbnails[], songs: SongDetailed[] }
   const tn = pickThumbnail(data.thumbnails || data.thumbnail);
@@ -298,7 +298,7 @@ function normalizePlaylist(source, data) {
     };
   }
 
-  // YT Music playlist — merged shape from scraper:
+  // YT Music playlist (merged shape from scraper):
   // PlaylistFull: { type:'PLAYLIST', playlistId, name, artist:{artistId,name},
   //                 videoCount, thumbnails[] }
   // + tracks: PlaylistVideo[] injected by the scraper via getPlaylistVideos()
@@ -333,7 +333,7 @@ function normalizeSuggestions(source, data, query) {
     return { source, query, suggestions };
   }
 
-  // YT Music suggestions — getSearchSuggestions() returns string[] directly
+  // YT Music suggestions: getSearchSuggestions() returns string[] directly
   let suggestions = [];
   if (Array.isArray(data)) {
     suggestions = data
@@ -362,13 +362,13 @@ function normalizeCharts(source, data) {
       charts = data.map(mapChart);
     }
 
-    // Filter out charts with no id — they can't be loaded
+    // Filter out charts with no id; they can't be loaded
     charts = charts.filter(c => c.id);
 
     return { source, charts };
   }
 
-  // YT Music charts — two possible inputs:
+  // YT Music charts: two possible inputs:
   // 1. getHomeSections() → HomeSection[]: [{ title, contents: (AlbumDetailed|PlaylistDetailed|SongDetailed)[] }]
   // 2. searchSongs() fallback → SongDetailed[]
   if (Array.isArray(data)) {
@@ -377,7 +377,7 @@ function normalizeCharts(source, data) {
       const charts = data
         .filter(section => section.title && Array.isArray(section.contents) && section.contents.length > 0)
         .map(section => {
-          // Only use PLAYLIST or ALBUM entries as chart IDs — SongDetailed
+          // Only use PLAYLIST or ALBUM entries as chart IDs; SongDetailed
           // videoIds cannot be loaded as a playlist/chart, so skip them.
           const playlist = section.contents.find(c => c.type === 'PLAYLIST');
           const album = section.contents.find(c => c.type === 'ALBUM');

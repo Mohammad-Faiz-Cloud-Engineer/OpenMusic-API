@@ -9,13 +9,13 @@ const router = Router();
 // ── Stream URL expiry helper ──────────────────────────────────────────────
 // Returns true if the cached stream data has an expires_at field that is
 // within 3 minutes of expiring (or already expired). Returns false if the
-// data has no expiry info (DES fallback path — trust the cache TTL).
+// data has no expiry info (DES fallback path: trust the cache TTL).
 const EXPIRY_BUFFER_MS = 3 * 60 * 1000; // 3 min safety buffer
 
 function isStreamExpired(streamData) {
-  if (!streamData?.expires_at) return false; // no expiry info — trust cache TTL
+  if (!streamData?.expires_at) return false; // no expiry info: trust cache TTL
   const expiresAt = new Date(streamData.expires_at).getTime();
-  if (isNaN(expiresAt)) return true; // invalid date — treat as expired
+  if (isNaN(expiresAt)) return true; // invalid date: treat as expired
   return expiresAt - Date.now() <= EXPIRY_BUFFER_MS;
 }
 
@@ -152,7 +152,7 @@ router.get('/track/:id', async (req, res) => {
 
   if (cached) {
     if (isStreamExpired(cached)) {
-      // Expired — evict from cache and re-fetch
+      // Expired: evict from cache and re-fetch
       streamCache.del(cacheKey);
       cached = null;
     } else {

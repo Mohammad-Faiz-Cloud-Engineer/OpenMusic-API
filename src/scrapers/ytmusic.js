@@ -24,12 +24,12 @@ function withTimeout(promise, ms) {
 async function getClient() {
   if (_ytmusic) return _ytmusic;
 
-  // Deduplicate concurrent init calls — only one initialize() runs at a time
+  // Deduplicate concurrent init calls; only one initialize() runs at a time
   if (_initPromise) return _initPromise;
 
   _initPromise = (async () => {
     try {
-      // ytmusic-api is ESM-only — dynamic import is required here.
+      // ytmusic-api is ESM-only; dynamic import is required here.
       // .default accesses the default export from the ESM module.
       const { default: YTMusic } = await import('ytmusic-api');
       const client = new YTMusic();
@@ -51,7 +51,7 @@ async function getClient() {
 }
 
 // ── Search ────────────────────────────────────────────────────────────────
-// searchSongs() returns SongDetailed[] — only songs, no mixed types.
+// searchSongs() returns SongDetailed[]: only songs, no mixed types.
 async function search(query) {
   const client = await getClient();
   const results = await withTimeout(client.searchSongs(query), TIMEOUT_MS);
@@ -61,7 +61,7 @@ async function search(query) {
 // ── Track metadata ────────────────────────────────────────────────────────
 // Fetches real track metadata via getSong() so the /track/:id response
 // includes title, artist, duration, thumbnail, and youtube_url.
-// stream_url stays null — YT Music does not provide direct audio URLs.
+// stream_url stays null; YT Music does not provide direct audio URLs.
 async function getTrackDetails(videoId) {
   const client = await getClient();
   try {
@@ -135,7 +135,7 @@ async function getSuggestions(query) {
     const results = await withTimeout(client.getSearchSuggestions(query), TIMEOUT_MS);
     return normalizeSuggestions('ytmusic', results, query);
   } catch (err) {
-    // Re-throw network/timeout errors — don't fall back on these
+    // Re-throw network/timeout errors; don't fall back on these
     if (err.message.includes('timed out') || err.message.includes('initialization failed')) {
       throw err;
     }

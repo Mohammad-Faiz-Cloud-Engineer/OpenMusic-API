@@ -70,12 +70,12 @@ async function search(query) {
 
 // ── Stream URL ────────────────────────────────────────────────────────────
 // FIX 1: song.getDetails can return a keyed object like { "<id>": { ... } }
-//         in addition to { songs: [] } or a plain array — handle all shapes.
-// FIX 2: generateAuthToken bitrate must be a string, not a number — JioSaavn
+//         in addition to { songs: [] } or a plain array; handle all shapes.
+// FIX 2: generateAuthToken bitrate must be a string, not a number; JioSaavn
 //         rejects numeric bitrate values silently and returns no auth_url.
 // FIX 3: Always try 320kbps first regardless of the 320kbps flag; fall back
 //         to 128kbps only if 320 auth token fails. The flag is unreliable.
-// FIX 4: streamUrl variable name shadowed the function name — renamed to
+// FIX 4: streamUrl variable name shadowed the function name; renamed to
 //         resolvedUrl to avoid the silent shadowing bug.
 async function getStreamUrl(id) {
   const songDetails = await callApi('song.getDetails', { pids: id });
@@ -87,7 +87,7 @@ async function getStreamUrl(id) {
   } else if (Array.isArray(songDetails)) {
     songs = songDetails;
   } else if (songDetails && typeof songDetails === 'object') {
-    // Keyed object: { "0gKfBAgi": { ... } } — take the first value
+    // Keyed object: { "0gKfBAgi": { ... } }; take the first value
     const values = Object.values(songDetails);
     if (values.length && values[0] && typeof values[0] === 'object') {
       songs = values;
@@ -124,7 +124,7 @@ async function getStreamUrl(id) {
       });
       if (authData?.auth_url && authData.status === 'success') {
         resolvedUrl = authData.auth_url;
-        // FIX: authData.type can be 'mp4', 'webm', or absent — normalise properly
+        // FIX: authData.type can be 'mp4', 'webm', or absent; normalise properly
         format = authData.type === 'mp4' ? 'm4a' : (authData.type || 'm4a');
         quality = `${bitrate}kbps`;
         const expMatch = resolvedUrl.match(/Expires=(\d+)/);
@@ -144,13 +144,13 @@ async function getStreamUrl(id) {
     console.warn(`[jiosaavn] All auth token attempts failed for ${id}, falling back to decrypt`);
     try {
       resolvedUrl = decryptMediaUrl(encUrl);
-      // FIX: quality suffix replacement regex was too greedy — use word boundary
+      // FIX: quality suffix replacement regex was too greedy; use word boundary
       // to avoid replacing parts of the CDN hostname
       const qualitySuffix = has320 ? '320' : '160';
       resolvedUrl = resolvedUrl.replace(/(_\d+)(\.(?:mp4|m4a|webm))/, `_${qualitySuffix}$2`);
       quality = extractQuality(resolvedUrl);
       format = resolvedUrl.includes('.webm') ? 'webm' : 'm4a';
-      // expiresAt stays null — decrypt path has no expiry info
+      // expiresAt stays null; decrypt path has no expiry info
     } catch (decryptErr) {
       throw new Error(`Stream URL resolution failed: ${decryptErr.message}`);
     }
@@ -171,7 +171,7 @@ function extractQuality(url) {
 async function getAlbum(id) {
   const data = await callApi('content.getAlbumDetails', { albumid: id });
   // FIX: JioSaavn returns null/empty object for invalid album IDs instead of
-  // an error — detect this and throw a proper not-found error
+  // an error; detect this and throw a proper not-found error
   if (!data || (typeof data === 'object' && !data.albumid && !data.id && !data.title && !data.songs && !data.list)) {
     throw new Error('Album not found');
   }
@@ -191,7 +191,7 @@ async function getPlaylist(id) {
 // ── Suggestions ───────────────────────────────────────────────────────────
 // FIX: The catch block swallowed ALL errors including network failures,
 // meaning a JioSaavn outage would silently fall through to a second
-// network call that would also fail — and then throw an unhandled error
+// network call that would also fail, and then throw an unhandled error
 // from inside the catch. Now we only fall back on expected "deprecated"
 // errors, and re-throw network/timeout errors immediately.
 async function getSuggestions(query) {
@@ -203,7 +203,7 @@ async function getSuggestions(query) {
     result.suggestions = result.suggestions.filter(s => typeof s === 'string' && s.trim().length > 0);
     return result;
   } catch (err) {
-    // Re-throw network/timeout errors — don't fall back on these
+    // Re-throw network/timeout errors; don't fall back on these
     if (err.message.includes('timed out') || err.message.includes('returned 5') || err.message.includes('request failed')) {
       throw err;
     }

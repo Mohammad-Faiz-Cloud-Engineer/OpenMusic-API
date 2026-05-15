@@ -129,7 +129,7 @@ router.get('/charts', async (_req, res) => {
 // ── Track metadata ────────────────────────────────────────────────────────
 // FIX: was caching a useless all-null object. Now returns real track metadata
 // including title, artist, duration, thumbnail, and youtube_url.
-// stream_url is always null — YT Music does not provide direct audio URLs.
+// stream_url is always null; YT Music does not provide direct audio URLs.
 // Use youtube_url to open the track in YouTube / YouTube Music.
 router.get('/track/:id', async (req, res) => {
   const id = trim(req.params.id);

@@ -413,10 +413,10 @@ body {
 
     <div class="response-card" id="responseCard">
       <div class="response-header">
-        <span class="status" id="respStatus">—</span>
+        <span class="status" id="respStatus">-</span>
         <span class="meta">
-          <span id="respTime">—</span>
-          <span id="respSize">—</span>
+          <span id="respTime">-</span>
+          <span id="respSize">-</span>
         </span>
       </div>
       <div class="response-tabs" id="respTabs">
@@ -587,7 +587,7 @@ const ENDPOINTS = {
       id: 'track',
       label: 'Track',
       path: '/ytmusic/track/{id}',
-      desc: 'Get track metadata (no stream URL — opens YouTube)',
+      desc: 'Get track metadata (no stream URL; opens YouTube)',
       params: [
         { key: 'id', label: 'id', type: 'text', placeholder: 'e.g. dQw4w9WgXcQ', required: true }
       ],
@@ -740,7 +740,7 @@ async function sendRequest() {
     if (isStreamProxy) {
       const audioSrc = safeHttpUrl(url);
       if (!audioSrc) {
-        showToast('Invalid request URL — use an http(s) API base', 'error');
+        showToast('Invalid request URL: use an http(s) API base', 'error');
         return;
       }
       AUDIO_PLAYER.setAttribute('src', audioSrc);
@@ -751,8 +751,8 @@ async function sendRequest() {
       RESP_STATUS.textContent = 'Stream loaded';
       RESP_STATUS.className = 'status ok';
       RESP_TIME.textContent = `${dur}s`;
-      RESP_SIZE.textContent = '—';
-      showToast('Stream ready — press play', 'success');
+      RESP_SIZE.textContent = '-';
+      showToast('Stream ready. Press play.', 'success');
     } else {
       const resp = await fetch(url);
       const dur = ((performance.now() - start) / 1000).toFixed(2);
@@ -794,10 +794,10 @@ async function sendRequest() {
     RESP_STATUS.textContent = 'Network Error';
     RESP_STATUS.className = 'status err';
     RESP_TIME.textContent = `${dur}s`;
-    RESP_SIZE.textContent = '—';
+    RESP_SIZE.textContent = '-';
     RESP_FORMATTED.textContent = `Error: ${err.message}\n\nMake sure the API base URL is correct and the server is running.`;
     RESP_RAW.textContent = err.stack || err.message;
-    RESP_HEADERS.textContent = '—';
+    RESP_HEADERS.textContent = '-';
     RESP_CARD.classList.add('show');
     switchPane('formatted');
     showToast(`Request failed: ${err.message}`, 'error');

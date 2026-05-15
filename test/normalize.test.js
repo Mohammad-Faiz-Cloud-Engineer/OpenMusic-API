@@ -126,7 +126,7 @@ describe('extractJioSaavnArtist', () => {
   });
 });
 
-describe('normalizeSearch — JioSaavn response shapes', () => {
+describe('normalizeSearch (JioSaavn response shapes)', () => {
   const baseSong = {
     id: 'abc123',
     title: 'Tere &amp; Naal',
@@ -180,7 +180,7 @@ describe('normalizeSearch — JioSaavn response shapes', () => {
   });
 });
 
-describe('normalizeSearch — YT Music song shapes', () => {
+describe('normalizeSearch (YT Music song shapes)', () => {
   it('normalizes SongDetailed shape (name + artist)', () => {
     const song = {
       type: 'SONG',
