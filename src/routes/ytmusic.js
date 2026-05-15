@@ -21,7 +21,7 @@ router.get('/search', async (req, res) => {
     searchCache.set(cacheKey, result);
     res.json(result);
   } catch (err) {
-    if (err.message?.includes('unavailable') || err.message?.includes('timed out') || err.message?.includes('returned 5')) {
+    if (err.message?.includes('unavailable') || err.message?.includes('timed out') || err.message?.includes('initialization failed')) {
       return res.status(503).json({ error: 'source_unavailable', source: 'ytmusic', message: err.message });
     }
     console.error('[ytmusic] search error:', err.message);
@@ -45,7 +45,7 @@ router.get('/suggestions', async (req, res) => {
     searchCache.set(cacheKey, result);
     res.json(result);
   } catch (err) {
-    if (err.message?.includes('unavailable') || err.message?.includes('timed out')) {
+    if (err.message?.includes('unavailable') || err.message?.includes('timed out') || err.message?.includes('initialization failed')) {
       return res.status(503).json({ error: 'source_unavailable', source: 'ytmusic', message: err.message });
     }
     console.error('[ytmusic] suggestions error:', err.message);
@@ -69,10 +69,10 @@ router.get('/album/:id', async (req, res) => {
     metadataCache.set(cacheKey, result);
     res.json(result);
   } catch (err) {
-    if (err.message?.includes('not found')) {
+    if (err.message?.includes('not found') || err.message?.includes('not_found')) {
       return res.status(404).json({ error: 'album_not_found', source: 'ytmusic', message: err.message });
     }
-    if (err.message?.includes('unavailable') || err.message?.includes('timed out')) {
+    if (err.message?.includes('unavailable') || err.message?.includes('timed out') || err.message?.includes('initialization failed')) {
       return res.status(503).json({ error: 'source_unavailable', source: 'ytmusic', message: err.message });
     }
     console.error('[ytmusic] album error:', err.message);
@@ -96,10 +96,10 @@ router.get('/playlist/:id', async (req, res) => {
     metadataCache.set(cacheKey, result);
     res.json(result);
   } catch (err) {
-    if (err.message?.includes('not found')) {
+    if (err.message?.includes('not found') || err.message?.includes('not_found')) {
       return res.status(404).json({ error: 'playlist_not_found', source: 'ytmusic', message: err.message });
     }
-    if (err.message?.includes('unavailable') || err.message?.includes('timed out')) {
+    if (err.message?.includes('unavailable') || err.message?.includes('timed out') || err.message?.includes('initialization failed')) {
       return res.status(503).json({ error: 'source_unavailable', source: 'ytmusic', message: err.message });
     }
     console.error('[ytmusic] playlist error:', err.message);
@@ -118,7 +118,7 @@ router.get('/charts', async (_req, res) => {
     metadataCache.set(cacheKey, result);
     res.json(result);
   } catch (err) {
-    if (err.message?.includes('unavailable') || err.message?.includes('timed out')) {
+    if (err.message?.includes('unavailable') || err.message?.includes('timed out') || err.message?.includes('initialization failed')) {
       return res.status(503).json({ error: 'source_unavailable', source: 'ytmusic', message: err.message });
     }
     console.error('[ytmusic] charts error:', err.message);
@@ -126,7 +126,11 @@ router.get('/charts', async (_req, res) => {
   }
 });
 
-// ── Track URL (metadata only — no streaming) ──────────────────────────────
+// ── Track metadata ────────────────────────────────────────────────────────
+// FIX: was caching a useless all-null object. Now returns real track metadata
+// including title, artist, duration, thumbnail, and youtube_url.
+// stream_url is always null — YT Music does not provide direct audio URLs.
+// Use youtube_url to open the track in YouTube / YouTube Music.
 router.get('/track/:id', async (req, res) => {
   const id = trim(req.params.id);
   if (!id) {
@@ -142,14 +146,14 @@ router.get('/track/:id', async (req, res) => {
     streamCache.set(cacheKey, result);
     res.json(result);
   } catch (err) {
-    if (err.message?.includes('not found')) {
+    if (err.message?.includes('not found') || err.message?.includes('not_found')) {
       return res.status(404).json({ error: 'track_not_found', source: 'ytmusic', message: err.message });
     }
-    if (err.message?.includes('unavailable') || err.message?.includes('timed out')) {
+    if (err.message?.includes('unavailable') || err.message?.includes('timed out') || err.message?.includes('initialization failed')) {
       return res.status(503).json({ error: 'source_unavailable', source: 'ytmusic', message: err.message });
     }
     console.error('[ytmusic] track error:', err.message);
-    res.status(500).json({ error: 'stream_failed', source: 'ytmusic', message: err.message });
+    res.status(500).json({ error: 'track_failed', source: 'ytmusic', message: err.message });
   }
 });
 
