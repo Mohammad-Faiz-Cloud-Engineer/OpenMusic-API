@@ -81,8 +81,9 @@ function extractJioSaavnArtist(item) {
 // (Node.js safe). Handles both decimal NCRs (&#39;) and hex NCRs (&#x2019;).
 function decodeHtmlEntities(str) {
   if (!str || typeof str !== 'string') return str;
+  // Decode &amp; last so double-encoded sequences (e.g. &amp;lt;) are not
+  // fully unescaped into meta-characters like '<'.
   return str
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
@@ -93,7 +94,8 @@ function decodeHtmlEntities(str) {
     // Hex numeric character references (e.g. &#x2019; → ')
     .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
     // Decimal numeric character references (e.g. &#8217; → ')
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)));
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/&amp;/g, '&');
 }
 
 // ── JioSaavn song normalizer ──────────────────────────────────────────────

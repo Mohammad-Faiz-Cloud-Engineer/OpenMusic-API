@@ -600,6 +600,30 @@ function getBase() {
   return BASE_INPUT.value.trim().replace(/\/+$/, '');
 }
 
+function resolveApiBase() {
+  const raw = getBase();
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    return u;
+  } catch {
+    return null;
+  }
+}
+
+/** Allow only http(s) URLs for audio element src (blocks javascript: etc.). */
+function safeHttpUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    return u.href;
+  } catch {
+    return null;
+  }
+}
+
 function buildEndpoints() {
   ENDPOINT_LIST.innerHTML = '<div class="sidebar-label">Endpoints</div>';
   const eps = ENDPOINTS[currentSource];
@@ -709,7 +733,12 @@ async function sendRequest() {
   const start = performance.now();
   try {
     if (isStreamProxy) {
-      AUDIO_PLAYER.setAttribute('src', url);
+      const audioSrc = safeHttpUrl(url);
+      if (!audioSrc) {
+        showToast('Invalid request URL — use an http(s) API base', 'error');
+        return;
+      }
+      AUDIO_PLAYER.setAttribute('src', audioSrc);
       AUDIO_CARD.classList.add('show');
       RESP_CARD.classList.remove('show');
 
@@ -746,8 +775,13 @@ async function sendRequest() {
       switchPane('formatted');
 
       if (ep.id === 'track' && currentSource === 'jiosaavn' && data.stream_url) {
-        AUDIO_PLAYER.setAttribute('src', data.stream_url);
-        AUDIO_CARD.classList.add('show');
+        const streamSrc = safeHttpUrl(data.stream_url);
+        if (streamSrc) {
+          AUDIO_PLAYER.setAttribute('src', streamSrc);
+          AUDIO_CARD.classList.add('show');
+        } else {
+          showToast('Stream URL rejected (must be http or https)', 'error');
+        }
       }
     }
   } catch (err) {

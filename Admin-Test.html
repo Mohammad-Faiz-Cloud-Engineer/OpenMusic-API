@@ -366,6 +366,27 @@ function base() {
   return BASE.value.trim().replace(/\/+$/, '');
 }
 
+function resolveApiBase() {
+  const raw = base();
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    return u;
+  } catch {
+    return null;
+  }
+}
+
+/** Build a play-stream URL from API base + track id (validates both; safe for audio src). */
+function jiosaavnPlayStreamUrl(trackId) {
+  const apiBase = resolveApiBase();
+  if (!apiBase || trackId == null) return null;
+  const id = String(trackId);
+  if (!/^[\w.-]+$/.test(id)) return null;
+  return new URL(`/jiosaavn/track/${encodeURIComponent(id)}/play`, apiBase).href;
+}
+
 function src(path) {
   return `${base()}/${currentSource}${path}`;
 }
@@ -511,8 +532,16 @@ async function playTrack(card) {
 
   card.classList.add('playing');
 
+  const playSrc = jiosaavnPlayStreamUrl(id);
+  if (!playSrc) {
+    showToast('Invalid track ID or API base URL', 'err');
+    card.classList.remove('playing');
+    PLAYER_BAR.classList.remove('show');
+    return;
+  }
+
   try {
-    AUDIO.setAttribute('src', `${base()}/jiosaavn/track/${encodeURIComponent(id)}/play`);
+    AUDIO.setAttribute('src', playSrc);
     AUDIO.load();
     await AUDIO.play();
   } catch (e) {

@@ -247,7 +247,7 @@ router.get('/track/:id/play', async (req, res) => {
     }
 
     cdnRes.data.on('error', (streamErr) => {
-      console.error(`[jiosaavn] proxy stream error for ${id}:`, streamErr.message);
+      console.error('[jiosaavn] proxy stream error for', id, streamErr.message);
       if (!res.headersSent) {
         res.status(502).json({ error: 'proxy_stream_error', message: `Stream error: ${streamErr.message}` });
       } else {
