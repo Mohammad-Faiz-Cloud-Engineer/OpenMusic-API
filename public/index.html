@@ -703,7 +703,7 @@ $('closePlayer').addEventListener('click', () => {
 function formatDur(s) {
   if (!s || s <= 0) return '--:--';
   const m = Math.floor(s / 60);
-  const sec = s % 60;
+  const sec = Math.floor(s % 60);
   return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
@@ -736,8 +736,7 @@ function showToast(msg) {
   setTimeout(() => t.remove(), 5000);
 }
 
-// Load charts on page load
-loadCharts();
+// Charts load lazily when the Charts tab is clicked (see nav-tab click handler above)
 </script>
 </body>
 </html>
