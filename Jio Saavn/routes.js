@@ -1,8 +1,8 @@
 const { Router } = require('express');
 const axios = require('axios');
-const jiosaavn = require('../scrapers/jiosaavn');
-const { searchCache, streamCache, metadataCache } = require('../utils/cache');
-const { trim } = require('../utils/normalize');
+const jiosaavn = require('./scraper');
+const { searchCache, streamCache, metadataCache } = require('./cache');
+const { trim } = require('./normalize');
 
 const router = Router();
 
@@ -215,8 +215,6 @@ router.get('/track/:id/play', async (req, res) => {
         'Referer': 'https://www.jiosaavn.com/',
       },
       timeout: 30000,
-      // Disable axios response size limit so large audio files don't get cut off.
-      // responseType: 'stream' means data is piped, not buffered in memory.
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
     };
@@ -236,7 +234,6 @@ router.get('/track/:id/play', async (req, res) => {
     if (cdnRes.headers['accept-ranges']) {
       res.set('Accept-Ranges', cdnRes.headers['accept-ranges']);
     } else {
-      // Always advertise byte range support so players can seek
       res.set('Accept-Ranges', 'bytes');
     }
     if (range && cdnRes.headers['content-range']) {

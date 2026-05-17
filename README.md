@@ -11,11 +11,7 @@ app_port: 7860
 
 [![Tests](https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API/actions/workflows/test.yml/badge.svg)](https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API/actions/workflows/test.yml)
 
-A unified music API that scrapes metadata and streams from **JioSaavn** and **YouTube Music**. No API keys, no sign-up, no database. Just a JSON API and a built-in browser UI.
-
-**Two APIs in one:**
-- `/jiosaavn/*`: search, stream, and proxy audio from JioSaavn
-- `/ytmusic/*`: search and browse YouTube Music (no streaming, opens YouTube instead)
+A JioSaavn music API proxy that scrapes metadata and streams audio. No API keys, no sign-up, no database. Just a JSON API and a built-in browser UI.
 
 ---
 
@@ -59,7 +55,7 @@ Opens on `http://localhost:3000`. Hit `/health` to check.
 npm test
 ```
 
-Runs unit tests for the normalizer (JioSaavn/YT Music response shapes, HTML entities, thumbnails) and decrypt validation.
+Runs unit tests for the normalizer (JioSaavn response shapes, HTML entities, thumbnails) and decrypt validation.
 
 ---
 
@@ -77,19 +73,6 @@ Runs unit tests for the normalizer (JioSaavn/YT Music response shapes, HTML enti
 | `GET` | `/jiosaavn/track/:id` | Get stream URL for a track |
 | `GET` | `/jiosaavn/track/:id/play` | **Proxy audio stream** (pipe through server) |
 
-### YouTube Music API `(/ytmusic/*)`
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/ytmusic/search?q=<query>` | Search songs |
-| `GET` | `/ytmusic/suggestions?q=<query>` | Autocomplete suggestions |
-| `GET` | `/ytmusic/album/:id` | Album details + track list |
-| `GET` | `/ytmusic/playlist/:id` | Playlist details + track list |
-| `GET` | `/ytmusic/charts` | Trending music |
-| `GET` | `/ytmusic/track/:id` | Get track metadata (no stream URL; opens YouTube) |
-
-> **Note:** YouTube Music doesn't give out direct audio URLs. The `/track/:id` endpoint returns metadata only. Use the `videoId` to open `https://www.youtube.com/watch?v=<videoId>`.
-
 ---
 
 ## Copy-Paste Examples
@@ -98,8 +81,6 @@ Runs unit tests for the normalizer (JioSaavn/YT Music response shapes, HTML enti
 
 ```javascript
 const BASE = 'https://LocalFind-OpenMusic-API.hf.space';
-
-// ── JioSaavn ──────────────────────────────────────────────────
 
 // Search songs
 const searchRes = await fetch(`${BASE}/jiosaavn/search?q=tere naal`);
@@ -132,30 +113,6 @@ console.log(streamData.stream_url);  // ← this is the actual audio URL
 const audio = new Audio();
 audio.src = `${BASE}/jiosaavn/track/0gKfBAgi/play`;
 audio.play();
-
-
-// ── YouTube Music ──────────────────────────────────────────────
-
-// Search songs
-const ytSearch = await fetch(`${BASE}/ytmusic/search?q=tere naal`);
-const ytData = await ytSearch.json();
-console.log(ytData.results);
-
-// Get album
-const ytAlbum = await fetch(`${BASE}/ytmusic/album/MPREb_DHWbS7Con8q`);
-const ytAlbumData = await ytAlbum.json();
-console.log(ytAlbumData);
-
-// Get playlist
-const ytPl = await fetch(`${BASE}/ytmusic/playlist/PL...`);
-const ytPlData = await ytPl.json();
-console.log(ytPlData);
-
-// Track metadata (no stream URL; open in YouTube)
-const ytTrack = await fetch(`${BASE}/ytmusic/track/dQw4w9WgXcQ`);
-const ytTrackData = await ytTrack.json();
-console.log(ytTrackData);
-// Open: https://www.youtube.com/watch?v=dQw4w9WgXcQ
 ```
 
 ### Python (requests)
@@ -165,7 +122,6 @@ import requests
 
 BASE = 'https://LocalFind-OpenMusic-API.hf.space'
 
-# ── JioSaavn ──
 search = requests.get(f'{BASE}/jiosaavn/search', params={'q': 'tere naal'}).json()
 print(search['results'][0]['title'])  # first result title
 
@@ -174,10 +130,6 @@ print(album['title'], album['song_count'], 'tracks')
 
 stream = requests.get(f'{BASE}/jiosaavn/track/0gKfBAgi').json()
 print('Stream URL:', stream['stream_url'])
-
-# ── YouTube Music ──
-yt = requests.get(f'{BASE}/ytmusic/search', params={'q': 'tere naal'}).json()
-print(yt['results'][0]['title'])
 ```
 
 ### cURL
@@ -185,20 +137,14 @@ print(yt['results'][0]['title'])
 ```bash
 BASE=https://LocalFind-OpenMusic-API.hf.space
 
-# JioSaavn search
+# Search
 curl "$BASE/jiosaavn/search?q=tere%20naal"
 
-# JioSaavn album
+# Album
 curl "$BASE/jiosaavn/album/70160165"
 
-# JioSaavn stream URL
+# Stream URL
 curl "$BASE/jiosaavn/track/0gKfBAgi"
-
-# YouTube Music search
-curl "$BASE/ytmusic/search?q=tere%20naal"
-
-# YouTube Music album
-curl "$BASE/ytmusic/album/MPREb_DHWbS7Con8q"
 ```
 
 ---
@@ -227,7 +173,7 @@ Every endpoint returns JSON. Here's what you get:
 }
 ```
 
-### Stream URL (JioSaavn only)
+### Stream URL
 
 ```json
 {
@@ -267,7 +213,7 @@ Every endpoint returns JSON. Here's what you get:
 }
 ```
 
-### Charts (JioSaavn)
+### Charts
 
 ```json
 {
@@ -298,13 +244,12 @@ Every endpoint returns JSON. Here's what you get:
 ## How It Works
 
 ```
-Browser / App → Express → Scraper (JioSaavn / YT Music) → Normalizer → Cache → JSON
+Browser / App → Express → Scraper (JioSaavn) → Normalizer → Cache → JSON
 ```
 
-- Routes are split by source: `/jiosaavn/*` and `/ytmusic/*`
 - Each request checks an in-memory cache first
-- If missed, the scraper fetches from the source API, normalizes the response, caches it, and returns JSON
-- JioSaavn stream URLs are decrypted with a hardcoded DES key, or fetched via auth token generation
+- If missed, the scraper fetches from the JioSaavn API, normalizes the response, caches it, and returns JSON
+- Stream URLs are decrypted with a hardcoded DES key, or fetched via auth token generation
 - `/jiosaavn/track/:id/play` proxies the audio through the server to bypass CORS and Referer restrictions
 
 ### Cache TTLs
@@ -340,7 +285,6 @@ Open the root URL (`/`) in a browser. There's a dark-themed single-page app for 
 | Runtime | Node.js >= 18 |
 | Web framework | Express 4 |
 | HTTP client | Axios |
-| YT Music | ytmusic-api (ESM, dynamically imported) |
 | Caching | node-cache (in-memory) |
 | Decryption | crypto-js (DES/ECB) |
 | Rate limiting | express-rate-limit |

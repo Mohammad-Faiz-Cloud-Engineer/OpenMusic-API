@@ -1,7 +1,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { decryptMediaUrl } = require('../src/utils/decrypt');
+const { decryptMediaUrl } = require('../Jio Saavn/decrypt');
 
 describe('decryptMediaUrl', () => {
   it('rejects empty or non-string input', () => {

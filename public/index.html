@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Music API Tester</title>
+<title>JioSaavn API Tester</title>
 <style>
 :root {
   --bg: #0f0f14;
@@ -46,26 +46,7 @@ a { color: var(--accent); text-decoration: none; }
   margin: 24px auto;
   padding: 0 16px;
 }
-.source-tabs {
-  display: flex; gap: 8px; margin-bottom: 12px;
-}
-.source-tab {
-  padding: 8px 20px;
-  border-radius: 20px;
-  border: 1px solid var(--surface2);
-  background: var(--surface);
-  color: var(--text2);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-.source-tab.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-.source-tab:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+
 
 .search-row { display: flex; gap: 8px; position: relative; }
 .search-row input {
@@ -368,17 +349,13 @@ a { color: var(--accent); text-decoration: none; }
 <body>
 
 <div class="header">
-  <h1>&#9835; Music API Tester</h1>
+  <h1>&#9835; JioSaavn API Tester</h1>
 </div>
 
 <div class="search-section">
-  <div class="source-tabs">
-    <button class="source-tab active" data-source="jiosaavn">JioSaavn</button>
-    <button class="source-tab" data-source="ytmusic">YouTube Music</button>
-  </div>
   <div class="search-row">
     <div style="flex:1; position:relative;">
-      <input type="text" id="searchInput" placeholder="Search for songs, artists, albums..." autocomplete="off">
+      <input type="text" id="searchInput" placeholder="Search JioSaavn for songs, artists, albums..." autocomplete="off">
       <div class="suggestions-box" id="suggestionsBox"></div>
     </div>
     <button id="searchBtn">Search</button>
@@ -399,7 +376,7 @@ a { color: var(--accent); text-decoration: none; }
 
   <div class="tab-panel" id="tab-album">
     <div class="search-row" style="margin-bottom:16px;">
-      <input type="text" id="albumIdInput" placeholder="Enter Album ID (e.g. 70160165 or MPREb_DHWbS7Con8q)" style="flex:1;">
+      <input type="text" id="albumIdInput" placeholder="Enter Album ID (e.g. 70160165)" style="flex:1;">
       <button id="albumBtn">Load Album</button>
     </div>
     <div id="albumView"></div>
@@ -407,7 +384,7 @@ a { color: var(--accent); text-decoration: none; }
 
   <div class="tab-panel" id="tab-playlist">
     <div class="search-row" style="margin-bottom:16px;">
-      <input type="text" id="playlistIdInput" placeholder="Enter Playlist ID (e.g. 1134543272 or PL...)" style="flex:1;">
+      <input type="text" id="playlistIdInput" placeholder="Enter Playlist ID (e.g. 1134543272)" style="flex:1;">
       <button id="playlistBtn">Load Playlist</button>
     </div>
     <div id="playlistView"></div>
@@ -430,28 +407,13 @@ a { color: var(--accent); text-decoration: none; }
 
 <script>
 const API = '';
-let currentSource = 'jiosaavn';
 let suggestionsTimer = null;
-
-function src(path) {
-  return `${API}/${currentSource}${path}`;
-}
 
 const $ = id => document.getElementById(id);
 const audio = $('audioPlayer');
 const playerBar = $('playerBar');
 
-// --- Source Tabs ---
-document.querySelectorAll('.source-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.source-tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    currentSource = tab.dataset.source;
-    $('searchInput').placeholder = currentSource === 'jiosaavn'
-      ? 'Search JioSaavn for songs, artists, albums...'
-      : 'Search YouTube Music for songs, artists, albums...';
-  });
-});
+// No source tabs: always use JioSaavn
 
 // --- Nav Tabs ---
 document.querySelectorAll('.nav-tab').forEach(tab => {
@@ -480,7 +442,7 @@ document.addEventListener('click', e => {
 
 async function loadSuggestions(q) {
   try {
-    const r = await fetch(`${src('/suggestions')}?q=${encodeURIComponent(q)}`);
+    const r = await fetch(`${API}/jiosaavn/suggestions?q=${encodeURIComponent(q)}`);
     if (!r.ok) return;
     const data = await r.json();
     const box = $('suggestionsBox');
@@ -503,7 +465,7 @@ async function doSearch() {
   $('suggestionsBox').classList.remove('show');
   $('searchResults').innerHTML = '<div class="loading"><div class="spinner"></div>Searching...</div>';
   try {
-    const r = await fetch(`${src('/search')}?q=${encodeURIComponent(q)}`);
+    const r = await fetch(`${API}/jiosaavn/search?q=${encodeURIComponent(q)}`);
     if (!r.ok) {
       const err = await r.json();
       throw new Error(err.message || `HTTP ${r.status}`);
@@ -525,7 +487,7 @@ function renderSearchResults(data) {
     ${data.results.length} result${data.results.length > 1 ? 's' : ''} for "${escapeHtml(data.query)}" on ${data.source}
   </div><div class="results-grid">${
     data.results.map(t => `
-      <div class="track-card" onclick="playTrack('${escapeAttr(t.id)}', '${escapeAttr(t.title)}', '${escapeAttr(t.artist)}', '${escapeAttr(t.thumbnail)}', '${currentSource}')">
+      <div class="track-card" onclick="playTrack('${escapeAttr(t.id)}', '${escapeAttr(t.title)}', '${escapeAttr(t.artist)}', '${escapeAttr(t.thumbnail)}', 'jiosaavn')">
         <img class="art" src="${t.thumbnail || ''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>♫</text></svg>'">
         <div class="info">
           <div class="title" title="${escapeAttr(t.title)}">${escapeHtml(t.title)}</div>
@@ -549,7 +511,7 @@ async function loadAlbum() {
   if (!id) return;
   $('albumView').innerHTML = '<div class="loading"><div class="spinner"></div>Loading album...</div>';
   try {
-    const r = await fetch(`${src('/album')}/${encodeURIComponent(id)}`);
+    const r = await fetch(`${API}/jiosaavn/album/${encodeURIComponent(id)}`);
     if (!r.ok) {
       const err = await r.json();
       throw new Error(err.message || `HTTP ${r.status}`);
@@ -570,7 +532,7 @@ async function loadPlaylist() {
   if (!id) return;
   $('playlistView').innerHTML = '<div class="loading"><div class="spinner"></div>Loading playlist...</div>';
   try {
-    const r = await fetch(`${src('/playlist')}/${encodeURIComponent(id)}`);
+    const r = await fetch(`${API}/jiosaavn/playlist/${encodeURIComponent(id)}`);
     if (!r.ok) {
       const err = await r.json();
       throw new Error(err.message || `HTTP ${r.status}`);
@@ -599,7 +561,7 @@ function renderDetail(data, containerId) {
       </div>
       <div class="detail-tracks">
         ${(data.tracks || []).map((t, i) => `
-          <div class="track-row" onclick="playTrack('${escapeAttr(t.id)}', '${escapeAttr(t.title)}', '${escapeAttr(t.artist)}', '${escapeAttr(t.thumbnail || data.thumbnail)}', '${currentSource}')">
+          <div class="track-row" onclick="playTrack('${escapeAttr(t.id)}', '${escapeAttr(t.title)}', '${escapeAttr(t.artist)}', '${escapeAttr(t.thumbnail || data.thumbnail)}', 'jiosaavn')">
             <span class="num">${t.track_number || i + 1}</span>
             <div class="track-info">
               <div class="t-title">${escapeHtml(t.title)}</div>
@@ -620,7 +582,7 @@ async function loadCharts() {
   const el = $('chartsView');
   el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading charts...</div>';
   try {
-    const r = await fetch(`${src('/charts')}`);
+    const r = await fetch(`${API}/jiosaavn/charts`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     if (!data.charts?.length) {
@@ -654,20 +616,11 @@ function loadPlaylistById(id) {
 // --- Playback ---
 async function playTrack(id, title, artist, thumbnail, source) {
   $('npTitle').textContent = title || 'Unknown';
-  $('npArtist').textContent = `${artist || ''} \u00b7 ${source}`;
+  $('npArtist').textContent = artist || '';
   playerBar.classList.add('show');
   audio.pause();
   audio.removeAttribute('src');
   audio.style.display = '';
-
-  if (source === 'ytmusic') {
-    $('npArtist').textContent = `${artist || ''} \u00b7 YouTube Music`;
-    const ytUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
-    showToast(`YouTube Music cannot stream directly. Opening "${title}" in YouTube...`);
-    window.open(ytUrl, '_blank');
-    playerBar.classList.remove('show');
-    return;
-  }
 
   try {
     audio.setAttribute('src', `${API}/jiosaavn/track/${encodeURIComponent(id)}/play`);

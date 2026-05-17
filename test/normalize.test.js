@@ -13,7 +13,7 @@ const {
   normalizePlaylist,
   normalizeSuggestions,
   normalizeCharts,
-} = require('../src/utils/normalize');
+} = require('../Jio Saavn/normalize');
 
 describe('trim', () => {
   it('trims strings and passes through non-strings', () => {
@@ -180,51 +180,6 @@ describe('normalizeSearch (JioSaavn response shapes)', () => {
   });
 });
 
-describe('normalizeSearch (YT Music song shapes)', () => {
-  it('normalizes SongDetailed shape (name + artist)', () => {
-    const song = {
-      type: 'SONG',
-      videoId: 'vid1',
-      name: 'Song A',
-      artist: { name: 'Artist A' },
-      album: { name: 'Album A' },
-      duration: 200,
-      thumbnails: [{ url: 'https://yt/s.jpg', width: 120 }],
-    };
-    const out = normalizeSearch('ytmusic', [song], 'q');
-    assert.equal(out.results[0].title, 'Song A');
-    assert.equal(out.results[0].artist, 'Artist A');
-    assert.equal(out.results[0].album, 'Album A');
-    assert.equal(out.results[0].duration_seconds, 200);
-    assert.equal(out.results[0].thumbnail, 'https://yt/s.jpg');
-  });
-
-  it('normalizes PlaylistVideo shape (title + artists)', () => {
-    const song = {
-      type: 'SONG',
-      videoId: 'vid2',
-      title: 'Song B',
-      artists: { name: 'Artist B' },
-      duration: '180',
-      thumbnails: [{ url: 'https://yt/l.jpg', width: 480 }],
-    };
-    const out = normalizeSearch('ytmusic', [song], 'q');
-    assert.equal(out.results[0].title, 'Song B');
-    assert.equal(out.results[0].artist, 'Artist B');
-    assert.equal(out.results[0].duration_seconds, 180);
-  });
-
-  it('filters non-song types', () => {
-    const data = [
-      { type: 'SONG', videoId: 'a', name: 'Keep', artist: { name: 'X' }, duration: 1, thumbnails: [] },
-      { type: 'ALBUM', albumId: 'b', name: 'Drop' },
-    ];
-    const out = normalizeSearch('ytmusic', data, 'q');
-    assert.equal(out.results.length, 1);
-    assert.equal(out.results[0].id, 'a');
-  });
-});
-
 describe('normalizeStream', () => {
   it('builds a stream payload with defaults', () => {
     const out = normalizeStream('jiosaavn', 'id1', 'https://cdn/stream.m4a', null, null, '2026-01-01T00:00:00Z');
@@ -269,28 +224,6 @@ describe('normalizeAlbum', () => {
     assert.equal(out.tracks.length, 1);
     assert.equal(out.tracks[0].id, 't2');
   });
-
-  it('maps YT Music album', () => {
-    const data = {
-      type: 'ALBUM',
-      albumId: 'yt-alb',
-      name: 'YT Album',
-      artist: { name: 'YT Artist' },
-      year: 2023,
-      songs: [{
-        type: 'SONG',
-        videoId: 'v1',
-        name: 'YT Song',
-        artist: { name: 'YT Artist' },
-        duration: 100,
-        thumbnails: [{ url: 'https://yt/t.jpg', width: 200 }],
-      }],
-    };
-    const out = normalizeAlbum('ytmusic', data);
-    assert.equal(out.id, 'yt-alb');
-    assert.equal(out.title, 'YT Album');
-    assert.equal(out.tracks[0].title, 'YT Song');
-  });
 });
 
 describe('normalizePlaylist', () => {
@@ -304,38 +237,12 @@ describe('normalizePlaylist', () => {
     assert.equal(out.title, 'Mix & Match');
     assert.equal(out.tracks[0].track_number, 1);
   });
-
-  it('maps YT Music playlist with injected tracks', () => {
-    const data = {
-      type: 'PLAYLIST',
-      playlistId: 'PL1',
-      name: 'Playlist',
-      artist: { name: 'Owner' },
-      videoCount: 1,
-      tracks: [{
-        type: 'SONG',
-        videoId: 'v9',
-        title: 'In Playlist',
-        artists: { name: 'Band' },
-        duration: 90,
-        thumbnails: [],
-      }],
-    };
-    const out = normalizePlaylist('ytmusic', data);
-    assert.equal(out.owner, 'Owner');
-    assert.equal(out.tracks[0].title, 'In Playlist');
-  });
 });
 
 describe('normalizeSuggestions', () => {
   it('deduplicates JioSaavn suggestions', () => {
     const out = normalizeSuggestions('jiosaavn', { suggestions: ['  rock ', 'rock', { text: 'pop' }] }, 'r');
     assert.deepEqual(out.suggestions, ['rock', 'pop']);
-  });
-
-  it('passes through YT Music string suggestions', () => {
-    const out = normalizeSuggestions('ytmusic', ['jazz', { name: 'blues' }], 'j');
-    assert.deepEqual(out.suggestions, ['jazz', 'blues']);
   });
 });
 
@@ -350,25 +257,5 @@ describe('normalizeCharts', () => {
   it('drops JioSaavn charts without id', () => {
     const out = normalizeCharts('jiosaavn', { charts: [{ title: 'No ID' }] });
     assert.equal(out.charts.length, 0);
-  });
-
-  it('parses YT Music home sections', () => {
-    const data = [{
-      title: 'Trending',
-      contents: [
-        { type: 'SONG', videoId: 'skip' },
-        { type: 'PLAYLIST', playlistId: 'PL99', thumbnails: [{ url: 'https://yt/p.jpg', width: 300 }] },
-      ],
-    }];
-    const out = normalizeCharts('ytmusic', data);
-    assert.equal(out.charts[0].id, 'PL99');
-    assert.equal(out.charts[0].thumbnail, 'https://yt/p.jpg');
-  });
-
-  it('falls back to trending tracks for YT Music song list', () => {
-    const data = [{ type: 'SONG', videoId: 'v1', name: 'Hit', artist: { name: 'A' }, duration: 60, thumbnails: [] }];
-    const out = normalizeCharts('ytmusic', data);
-    assert.equal(out.charts[0].id, 'trending');
-    assert.equal(out.charts[0].tracks.length, 1);
   });
 });
