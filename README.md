@@ -9,6 +9,9 @@ app_port: 7860
 
 # OpenMusic API
 
+[![JioSaavn Tests](https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API/actions/workflows/test.yml/badge.svg?label=JioSaavn+Tests)](https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API/actions/workflows/test.yml)
+[![YouTube Music Tests](https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API/actions/workflows/test.yml/badge.svg?label=YouTube+Music+Tests)](https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API/actions/workflows/test.yml)
+
 A two-service music API repo:
 
 | Service | Stack | Folder |
