@@ -418,42 +418,96 @@ def build_proxy_response(url: str, incoming_headers, headers_json: str):
         return PlainTextResponse("Stream error", status_code=502)
 
 
+def public_base_url(request: Request) -> str:
+    """Honor reverse-proxy headers (HF Spaces → Node → Python on :8000)."""
+    proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "https").split(",")[0].strip()
+    host = (
+        request.headers.get("x-forwarded-host")
+        or request.headers.get("host")
+        or request.url.netloc
+    )
+    host = host.split(",")[0].strip()
+    return f"{proto}://{host}".rstrip("/")
+
+
+def _extract_youtube_audio(artist: str, title: str):
+    """Try several yt-dlp client/query combos (cloud IPs are often blocked on first attempt)."""
+    search_base = f"{artist} - {title}".strip(" -")
+    queries = [
+        f"{search_base} audio",
+        search_base,
+        f"{title} {artist}".strip(),
+        f"{search_base} official audio",
+    ]
+    client_sets = [
+        ["android_vr", "android", "web"],
+        ["mweb", "web"],
+        ["tv_embedded", "web"],
+        ["ios", "android"],
+    ]
+    ydl_base = {
+        "format": "bestaudio[ext=m4a]/bestaudio/best",
+        "quiet": True,
+        "noplaylist": True,
+        "socket_timeout": 30,
+        "retries": 3,
+        "fragment_retries": 3,
+        "no_warnings": True,
+    }
+    last_exc = None
+    seen_queries = set()
+    for query in queries:
+        q = query.strip()
+        if not q or q in seen_queries:
+            continue
+        seen_queries.add(q)
+        for clients in client_sets:
+            opts = {
+                **ydl_base,
+                "extractor_args": {"youtube": {"player_client": clients}},
+            }
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(f"ytsearch1:{q}", download=False)
+                video = info["entries"][0] if info and "entries" in info else info
+                if not video or not video.get("url"):
+                    raise RuntimeError("yt-dlp returned no stream URL")
+                return video, video.get("http_headers", {})
+            except Exception as exc:
+                last_exc = exc
+                logger.warning("yt-dlp failed q=%r clients=%s: %s", q, clients, exc)
+    raise last_exc or RuntimeError("Could not resolve YouTube audio")
+
+
 def render_play_response(request: Request, song_id: str, artist: str, title: str):
     filename = f"{song_id}.m4a"
     filepath = CACHE_DIR / filename
     if filepath.exists():
-        base_url = str(request.base_url).rstrip("/")
+        base_url = public_base_url(request)
         return JSONResponse({"source": "local", "url": f"{base_url}/api/mobile/stream_cache/{filename}"})
 
-    query = f"{artist} - {title} audio"
-    ydl_opts = {
-        "format": "bestaudio[ext=m4a]/bestaudio/best",
-        "quiet": True,
-        "noplaylist": True,
-        "extractor_args": {"youtube": {"client": ["android", "ios"]}},
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(f"ytsearch1:{query}", download=False)
-            video = info["entries"][0] if "entries" in info else info
-            http_headers = video.get("http_headers", {})
-            base_url = str(request.base_url).rstrip("/")
-            proxy_url = (
-                f"{base_url}/api/mobile/stream_proxy"
-                f"?url={quote(video['url'])}"
-                f"&headers={quote(json.dumps(http_headers))}"
-            )
-            return JSONResponse(
-                {
-                    "source": "youtube",
-                    "url": proxy_url,
-                    "direct_url": video["url"],
-                    "headers": http_headers,
-                }
-            )
-        except Exception as exc:
-            logger.error("render_play_response failed for song_id=%s: %s", song_id, exc)
-            return JSONResponse({"error": "Song not found"}, status_code=404)
+    try:
+        video, http_headers = _extract_youtube_audio(artist, title)
+        base_url = public_base_url(request)
+        proxy_url = (
+            f"{base_url}/api/mobile/stream_proxy"
+            f"?url={quote(video['url'])}"
+            f"&headers={quote(json.dumps(http_headers))}"
+        )
+        return JSONResponse(
+            {
+                "source": "youtube",
+                "url": proxy_url,
+                "direct_url": video["url"],
+                "headers": http_headers,
+            }
+        )
+    except Exception as exc:
+        logger.error("render_play_response failed for song_id=%s: %s", song_id, exc)
+        return JSONResponse(
+            {"error": "play_failed", "message": "Could not resolve audio for this track (YouTube blocked or unavailable)."},
+            status_code=404,
+        )
 
 
 # ---------------------------------------------------------------------------

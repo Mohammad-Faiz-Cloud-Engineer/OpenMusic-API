@@ -8,6 +8,14 @@ const router = Router();
 const YTMUSIC_BASE = (process.env.YTMUSIC_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 const CHART_PLAYLIST_ID = '__chart_top_songs__';
 const SOURCE = 'ytmusic';
+const PLAY_TIMEOUT_MS = 120_000;
+
+/** Public Piped API mirrors (fallback when yt-dlp fails on HF datacenter IPs). */
+const PIPED_INSTANCES = [
+  'https://pipedapi.kavin.rocks',
+  'https://pipedapi.adminforge.de',
+  'https://api.piped.projectsegfau.lt',
+];
 
 function toUiTrack(song) {
   if (!song) return null;
@@ -63,7 +71,55 @@ function itunesItemToTrack(item, trackNumber) {
 }
 
 function publicBase(req) {
-  return `${req.protocol}://${req.get('host')}/ytmusic`;
+  const proto = (req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim();
+  const host = (req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim();
+  return `${proto}://${host}/ytmusic`;
+}
+
+function proxyHeaders(req) {
+  return {
+    'X-Forwarded-Proto': (req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim(),
+    'X-Forwarded-Host': (req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim(),
+  };
+}
+
+function buildProxyUrl(directUrl, headers, req) {
+  const params = new URLSearchParams({
+    url: directUrl,
+    headers: JSON.stringify(headers || {}),
+  });
+  return `${publicBase(req)}/stream_proxy?${params}`;
+}
+
+function playErrorMessage(data, status) {
+  return data?.message || data?.error || `Playback failed (HTTP ${status})`;
+}
+
+async function resolveViaPiped(title, artist) {
+  const q = [title, artist].filter(Boolean).join(' ').trim();
+  if (!q) return null;
+
+  for (const base of PIPED_INSTANCES) {
+    try {
+      const { data: search } = await axios.get(`${base}/search`, {
+        params: { q, filter: 'music_songs' },
+        timeout: 20_000,
+      });
+      const item = search?.items?.[0];
+      const videoId = item?.url?.match(/[?&]v=([^&]+)/)?.[1];
+      if (!videoId) continue;
+
+      const { data: streams } = await axios.get(`${base}/streams/${videoId}`, { timeout: 20_000 });
+      const audio = (streams?.audioStreams || [])
+        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+      if (!audio?.url) continue;
+
+      return { source: 'piped', direct_url: audio.url, headers: {} };
+    } catch (err) {
+      console.warn('[ytmusic] piped fallback failed (%s): %s', base, err.message);
+    }
+  }
+  return null;
 }
 
 function rewriteServiceUrl(url, req) {
@@ -269,7 +325,7 @@ router.get('/album/:id', async (req, res) => {
   }
 });
 
-// ── Play (audio resolve via Python / yt-dlp) ──────────────────────────────
+// ── Play (audio resolve via Python / yt-dlp, Piped fallback on HF) ───────
 router.get('/play', async (req, res) => {
   const id = trim(req.query.id);
   const artist = trim(req.query.artist);
@@ -282,15 +338,43 @@ router.get('/play', async (req, res) => {
   }
 
   try {
-    const { data, status } = await axios.get(`${YTMUSIC_BASE}/api/mobile/play`, {
-      params: { id, artist, title, previous_song_id: trim(req.query.previous_song_id) || undefined },
-      timeout: 60_000,
-      validateStatus: () => true,
-    });
-    if (status >= 400) {
-      return res.status(status).json(data);
+    let data = null;
+    let status = 503;
+
+    try {
+      const upstream = await axios.get(`${YTMUSIC_BASE}/api/mobile/play`, {
+        params: { id, artist, title, previous_song_id: trim(req.query.previous_song_id) || undefined },
+        headers: proxyHeaders(req),
+        timeout: PLAY_TIMEOUT_MS,
+        validateStatus: () => true,
+      });
+      data = upstream.data;
+      status = upstream.status;
+    } catch (err) {
+      if (err.code !== 'ECONNREFUSED') throw err;
+      console.warn('[ytmusic] Python play unavailable, using Piped fallback only');
+      status = 404;
     }
-    res.json(rewritePlayPayload(data, req));
+
+    if (status < 400 && data?.url) {
+      return res.json(rewritePlayPayload(data, req));
+    }
+
+    const piped = await resolveViaPiped(title, artist);
+    if (piped?.direct_url) {
+      return res.json({
+        source: piped.source,
+        url: buildProxyUrl(piped.direct_url, piped.headers, req),
+        direct_url: piped.direct_url,
+        headers: piped.headers,
+      });
+    }
+
+    return res.status(404).json({
+      error: 'play_failed',
+      source: SOURCE,
+      message: playErrorMessage(data, status),
+    });
   } catch (err) {
     const msg = err.code === 'ECONNREFUSED'
       ? 'YouTube Music service is not running (expected on port 8000)'

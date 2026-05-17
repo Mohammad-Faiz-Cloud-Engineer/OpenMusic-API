@@ -702,7 +702,7 @@ async function playTrack(id, title, artist, thumbnail, source) {
       );
       if (!playRes.ok) {
         const err = await playRes.json().catch(() => ({}));
-        throw new Error(err.message || `HTTP ${playRes.status}`);
+        throw new Error(err.message || err.error || `HTTP ${playRes.status}`);
       }
       const playData = await playRes.json();
       if (!playData.url) throw new Error('No stream URL returned');
