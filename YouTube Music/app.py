@@ -1,10 +1,12 @@
+import ipaddress
 import json
 import logging
 import os
+import socket
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import requests
 import yt_dlp
@@ -59,6 +61,58 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 executor = ThreadPoolExecutor(max_workers=2)
+
+_BLOCKED_PROXY_HOSTS = frozenset({
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "::1",
+    "metadata.google.internal",
+})
+
+
+def _is_public_ip(ip):
+    return not (
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_reserved
+        or ip.is_multicast
+    )
+
+
+def _hostname_resolves_to_public_ips(hostname):
+    try:
+        addr_infos = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        return False
+    if not addr_infos:
+        return False
+    for info in addr_infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if not _is_public_ip(ip):
+            return False
+    return True
+
+
+def is_safe_stream_proxy_url(url):
+    """Reject URLs that could target internal networks (SSRF)."""
+    parsed = urlparse((url or "").strip())
+    if parsed.scheme not in ("http", "https"):
+        return False
+
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if not host or host in _BLOCKED_PROXY_HOSTS:
+        return False
+    if host.endswith(".local") or host.endswith(".internal"):
+        return False
+
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return _hostname_resolves_to_public_ips(host)
+
+    return _is_public_ip(ip)
 
 
 # ---------------------------------------------------------------------------
@@ -493,6 +547,8 @@ def mobile_stream_cache(filename: str):
 def mobile_stream_proxy(request: Request, url: str = "", headers: str = "{}"):
     if not url or not url.strip():
         return PlainTextResponse("url parameter is required", status_code=400)
+    if not is_safe_stream_proxy_url(url):
+        return PlainTextResponse("Forbidden", status_code=403)
     return build_proxy_response(url, request.headers, headers)
 
 

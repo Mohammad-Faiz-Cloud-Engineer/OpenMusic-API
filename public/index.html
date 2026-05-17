@@ -525,7 +525,7 @@ function renderSearchResults(data) {
     ${data.results.length} result${data.results.length > 1 ? 's' : ''} for "${escapeHtml(data.query)}" on ${data.source}
   </div><div class="results-grid">${
     data.results.map(t => `
-      <div class="track-card" onclick="playTrack('${escapeAttr(t.id)}', '${escapeAttr(t.title)}', '${escapeAttr(t.artist)}', '${escapeAttr(t.thumbnail)}', '${currentSource}')">
+      <div class="track-card track-play" ${playDataAttrs(t, currentSource)}>
         <img class="art" src="${t.thumbnail || ''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>♫</text></svg>'">
         <div class="info">
           <div class="title" title="${escapeAttr(t.title)}">${escapeHtml(t.title)}</div>
@@ -599,7 +599,7 @@ function renderDetail(data, containerId) {
       </div>
       <div class="detail-tracks">
         ${(data.tracks || []).map((t, i) => `
-          <div class="track-row" onclick="playTrack('${escapeAttr(t.id)}', '${escapeAttr(t.title)}', '${escapeAttr(t.artist)}', '${escapeAttr(t.thumbnail || data.thumbnail)}', '${currentSource}')">
+          <div class="track-row track-play" ${playDataAttrs(t, currentSource, t.thumbnail || data.thumbnail)}>
             <span class="num">${t.track_number || i + 1}</span>
             <div class="track-info">
               <div class="t-title">${escapeHtml(t.title)}</div>
@@ -630,7 +630,7 @@ async function loadCharts() {
     el.innerHTML = `<div style="color:var(--text2);font-size:13px;margin-bottom:12px;">${data.charts.length} charts</div>
       <div class="charts-grid">${
         data.charts.map(c => `
-          <div class="chart-card" onclick="loadPlaylistById('${escapeAttr(c.id)}')">
+          <div class="chart-card chart-open" data-chart-id="${escapeAttr(c.id)}">
             <img src="${c.thumbnail || ''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>♫</text></svg>'">
             <div class="c-title">${escapeHtml(c.title)}</div>
             ${c.description ? `<div class="c-desc">${escapeHtml(c.description)}</div>` : ''}
@@ -719,6 +719,16 @@ function escapeAttr(str) {
   return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function playDataAttrs(track, source, thumb) {
+  return [
+    `data-play-id="${escapeAttr(track.id)}"`,
+    `data-play-title="${escapeAttr(track.title || '')}"`,
+    `data-play-artist="${escapeAttr(track.artist || '')}"`,
+    `data-play-thumb="${escapeAttr(thumb || track.thumbnail || '')}"`,
+    `data-play-source="${escapeAttr(source)}"`,
+  ].join(' ');
+}
+
 function showToast(msg) {
   const existing = document.querySelector('.toast');
   if (existing) existing.remove();
@@ -737,6 +747,24 @@ function showToast(msg) {
 }
 
 // Charts load lazily when the Charts tab is clicked (see nav-tab click handler above)
+
+document.querySelector('.content').addEventListener('click', e => {
+  const playEl = e.target.closest('.track-play');
+  if (playEl) {
+    playTrack(
+      playEl.dataset.playId,
+      playEl.dataset.playTitle,
+      playEl.dataset.playArtist,
+      playEl.dataset.playThumb,
+      playEl.dataset.playSource,
+    );
+    return;
+  }
+  const chartEl = e.target.closest('.chart-open');
+  if (chartEl?.dataset.chartId) {
+    loadPlaylistById(chartEl.dataset.chartId);
+  }
+});
 </script>
 </body>
 </html>

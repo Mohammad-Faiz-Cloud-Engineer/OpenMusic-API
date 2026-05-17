@@ -1,10 +1,12 @@
-from .storage import apply_decay_if_needed, cleanup_tally_data, load_and_save_tally, load_tally_data, save_tally_data
+from .storage import apply_decay_if_needed, cleanup_tally_data, is_safe_key, load_and_save_tally
 
 
 def update_transition(previous_song_id, current_song_id):
     previous_song_id = str(previous_song_id or "").strip()
     current_song_id = str(current_song_id or "").strip()
     if not previous_song_id or not current_song_id or previous_song_id == current_song_id:
+        return
+    if not is_safe_key(previous_song_id) or not is_safe_key(current_song_id):
         return
 
     def _mutate(data):
@@ -28,7 +30,7 @@ def update_transition(previous_song_id, current_song_id):
 
 def get_behavior_recommendations(song_id, limit=5):
     song_id = str(song_id or "").strip()
-    if not song_id:
+    if not song_id or not is_safe_key(song_id):
         return []
 
     # Apply decay and persist in one atomic operation so we don't write a

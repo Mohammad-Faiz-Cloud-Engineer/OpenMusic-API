@@ -66,11 +66,38 @@ function isSafeKey(key) {
   return typeof key === 'string' && key.length > 0 && !UNSAFE_KEYS.has(key);
 }
 
+function createMap() {
+  return Object.create(null);
+}
+
+function isObjectLike(value) {
+  return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** Return a prototype-less map, copying plain-object data when needed. */
+function normalizeMap(value) {
+  if (!isObjectLike(value)) return createMap();
+  if (Object.getPrototypeOf(value) === null) return value;
+  const map = createMap();
+  for (const key of Object.keys(value)) {
+    map[key] = value[key];
+  }
+  return map;
+}
+
+function mapFromSortedPairs(pairs) {
+  const map = createMap();
+  for (const [key, count] of pairs) {
+    if (isSafeKey(key)) map[key] = count;
+  }
+  return map;
+}
+
 // ── Default / normalise ───────────────────────────────────────────────────
 function defaultTallyData() {
   return {
     _meta: { last_decay_at: new Date().toISOString(), song_order: [] },
-    transitions: {},
+    transitions: createMap(),
   };
 }
 
@@ -84,10 +111,10 @@ function normalizeData(raw) {
     out._meta.song_order = meta.song_order.map(String).filter(Boolean);
   }
 
-  const transitions = raw.transitions || {};
+  const transitions = isObjectLike(raw.transitions) ? raw.transitions : {};
   for (const [src, targets] of Object.entries(transitions)) {
-    if (!src || !isSafeKey(src) || typeof targets !== 'object') continue;
-    const normTargets = {};
+    if (!isSafeKey(src) || !isObjectLike(targets)) continue;
+    const normTargets = createMap();
     for (const [tgt, count] of Object.entries(targets)) {
       if (!isSafeKey(tgt)) continue;
       const n = parseInt(count, 10);
@@ -101,25 +128,26 @@ function normalizeData(raw) {
 // ── Cleanup ───────────────────────────────────────────────────────────────
 function cleanupTallyData(data) {
   const meta = data._meta || (data._meta = {});
-  const transitions = data.transitions || (data.transitions = {});
+  data.transitions = normalizeMap(data.transitions);
 
   if (!meta.last_decay_at) meta.last_decay_at = new Date().toISOString();
 
-  // Normalise and cap transitions per source
-  const cleaned = {};
-  for (const [src, targets] of Object.entries(transitions)) {
-    if (typeof targets !== 'object') continue;
+  const cleaned = createMap();
+  for (const [src, targets] of Object.entries(data.transitions)) {
+    if (!isSafeKey(src) || !isObjectLike(targets)) continue;
     const pairs = Object.entries(targets)
+      .filter(([tgt]) => isSafeKey(tgt))
       .map(([tgt, c]) => [String(tgt), parseInt(c, 10)])
       .filter(([, c]) => c > 0)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .slice(0, MAX_TRANSITIONS_PER_SONG);
-    if (pairs.length) cleaned[String(src)] = Object.fromEntries(pairs);
+    const targetMap = mapFromSortedPairs(pairs);
+    if (Object.keys(targetMap).length) cleaned[String(src)] = targetMap;
   }
   data.transitions = cleaned;
 
   // Rebuild song_order: keep only songs that still have transitions
-  let order = (meta.song_order || []).map(String).filter(id => id in cleaned);
+  let order = (meta.song_order || []).map(String).filter(id => isSafeKey(id) && id in cleaned);
   for (const src of Object.keys(cleaned)) {
     if (!order.includes(src)) order.push(src);
   }
@@ -146,6 +174,8 @@ function cleanupTallyData(data) {
 
 // ── Decay ─────────────────────────────────────────────────────────────────
 function applyDecayIfNeeded(data, now = Date.now()) {
+  data.transitions = normalizeMap(data.transitions);
+
   const lastDecay = new Date(data._meta.last_decay_at).getTime();
   if (isNaN(lastDecay)) {
     data._meta.last_decay_at = new Date(now).toISOString();
@@ -157,7 +187,9 @@ function applyDecayIfNeeded(data, now = Date.now()) {
 
   const multiplier = Math.pow(DECAY_FACTOR, intervals);
   for (const [src, targets] of Object.entries(data.transitions)) {
+    if (!isSafeKey(src) || !isObjectLike(targets)) continue;
     for (const [tgt, count] of Object.entries(targets)) {
+      if (!isSafeKey(tgt)) continue;
       const decayed = Math.floor(count * multiplier);
       if (decayed <= 0) delete targets[tgt];
       else targets[tgt] = decayed;

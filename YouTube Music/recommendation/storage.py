@@ -15,6 +15,13 @@ MAX_TRANSITIONS_PER_SONG = 3
 DECAY_INTERVAL = timedelta(days=7)
 DECAY_FACTOR = 0.5
 
+# Reject keys that must never be used as transition map keys (defense-in-depth).
+UNSAFE_KEYS = frozenset({"__proto__", "constructor", "prototype"})
+
+
+def is_safe_key(key):
+    return bool(key) and key not in UNSAFE_KEYS
+
 # Protects all reads and writes to the tally file so concurrent requests
 # (e.g. two /play calls arriving simultaneously) cannot corrupt the JSON.
 _tally_lock = threading.Lock()
@@ -65,16 +72,19 @@ def _normalize_data(data):
         if isinstance(transitions, dict):
             for source_id, targets in transitions.items():
                 source_id = str(source_id)
-                if not source_id or not isinstance(targets, dict):
+                if not is_safe_key(source_id) or not isinstance(targets, dict):
                     continue
                 normalized_targets = {}
                 for target_id, count in targets.items():
+                    target_id = str(target_id)
+                    if not is_safe_key(target_id):
+                        continue
                     try:
                         integer_count = int(count)
                     except (TypeError, ValueError):
                         continue
                     if integer_count > 0:
-                        normalized_targets[str(target_id)] = integer_count
+                        normalized_targets[target_id] = integer_count
                 if normalized_targets:
                     normalized["transitions"][source_id] = normalized_targets
     return normalized
@@ -181,21 +191,24 @@ def cleanup_tally_data(data):
 
     cleaned_transitions = {}
     for source_id, target_map in list(transitions.items()):
-        if not isinstance(target_map, dict):
+        source_id = str(source_id)
+        if not is_safe_key(source_id) or not isinstance(target_map, dict):
             continue
         normalized_targets = []
         for target_id, count in target_map.items():
+            target_id = str(target_id)
+            if not is_safe_key(target_id):
+                continue
             try:
                 integer_count = int(count)
             except (TypeError, ValueError):
                 continue
-            target_id = str(target_id)
-            if integer_count > 0 and target_id:
+            if integer_count > 0:
                 normalized_targets.append((target_id, integer_count))
         normalized_targets.sort(key=lambda item: (-item[1], item[0]))
         top_targets = dict(normalized_targets[:MAX_TRANSITIONS_PER_SONG])
         if top_targets:
-            cleaned_transitions[str(source_id)] = top_targets
+            cleaned_transitions[source_id] = top_targets
 
     transitions.clear()
     transitions.update(cleaned_transitions)

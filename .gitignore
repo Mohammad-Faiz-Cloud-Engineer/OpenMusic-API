@@ -56,3 +56,15 @@ YouTube Music/song_cache/
 # JioSaavn recommendation engine runtime data (auto-populated, not source)
 Jio Saavn/data/songs.json
 Jio Saavn/data/tally_counter.json
+
+# YouTube Music recommendation runtime data (auto-populated, not source)
+YouTube Music/data/songs.json
+YouTube Music/data/tally_counter.json
+
+# Python bytecode (any package path)
+__pycache__/
+*.py[cod]
+
+# Other build / cache dirs
+.next/
+target/
