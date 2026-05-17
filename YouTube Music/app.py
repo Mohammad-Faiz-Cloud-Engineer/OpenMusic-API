@@ -42,7 +42,14 @@ app.add_middleware(
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-CACHE_DIR = BASE_DIR / "song_cache"
+
+# OPENMUSIC_CACHE_DIR lets operators point song_cache at a persistent volume.
+# In HuggingFace Spaces the container filesystem is ephemeral, so set this
+# env var to a path backed by a Space persistent storage mount (e.g. /data).
+# Falls back to <app_dir>/song_cache when unset (local dev default).
+_cache_dir_env = os.environ.get("OPENMUSIC_CACHE_DIR", "")
+CACHE_DIR = Path(_cache_dir_env).resolve() if _cache_dir_env else BASE_DIR / "song_cache"
+
 CACHE_LIMIT_BYTES = 600 * 1024 * 1024
 
 # Maximum number of songs that can be requested in a single up_next call.

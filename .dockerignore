@@ -12,7 +12,9 @@ build
 coverage
 .nyc_output
 
-# Developer/admin test tools; not needed in the image
+# Test suites — not needed at runtime
+YouTube Music/tests/
+Jio Saavn/tests/
 
 # Python service artifacts
 YouTube Music/song_cache/
@@ -24,3 +26,4 @@ YouTube Music/.env
 YouTube Music/.env.*
 YouTube Music/venv/
 YouTube Music/.venv/
+YouTube Music/requirements-test.txt

@@ -10,7 +10,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 
 // ── Constants ─────────────────────────────────────────────────────────────
 const MAX_STORED_SONGS = 50;
@@ -24,12 +23,30 @@ const DEFAULT_TALLY_PATH = path.join(DATA_DIR, 'tally_counter.json');
 
 // ── Async mutex ───────────────────────────────────────────────────────────
 // A simple promise-chain lock so concurrent requests never race on the file.
+//
+// Correctness requirements:
+//   1. The caller's promise must resolve/reject with fn's result — not swallow errors.
+//   2. The lock chain must always advance even when fn throws, so subsequent
+//      callers are not permanently blocked.
+//
+// The previous implementation used `.catch(fn)` which re-invoked fn on error
+// instead of propagating the rejection — both wrong behaviours at once.
 let _lockChain = Promise.resolve();
 
 function withLock(fn) {
-  const next = _lockChain.then(fn).catch(fn); // always advance the chain
-  _lockChain = next.then(() => {}, () => {});
-  return next;
+  // Capture the tail of the chain *before* appending so we can chain fn onto
+  // it while keeping a separate reference to return to the caller.
+  const tail = _lockChain;
+
+  // The promise we return to the caller: waits for the current tail, then
+  // runs fn and propagates its result (resolve or reject) to the caller.
+  const callerPromise = tail.then(() => fn());
+
+  // Advance the chain: always resolves (never rejects) so later callers are
+  // never blocked by an error in this slot.
+  _lockChain = callerPromise.then(() => {}, () => {});
+
+  return callerPromise;
 }
 
 // ── Path helper ───────────────────────────────────────────────────────────

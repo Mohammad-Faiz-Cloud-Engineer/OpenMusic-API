@@ -83,7 +83,13 @@ function _writeCatalog(catalog) {
     throw err;
   }
   _catalogCache      = sorted;
-  _catalogCacheMtime = fs.statSync(p).mtimeMs;
+  try {
+    _catalogCacheMtime = fs.statSync(p).mtimeMs;
+  } catch {
+    // If stat fails immediately after rename (e.g. race on some filesystems),
+    // invalidate the mtime so the next read re-parses from disk.
+    _catalogCacheMtime = null;
+  }
 }
 
 /**

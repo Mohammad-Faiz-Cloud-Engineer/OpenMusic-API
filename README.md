@@ -382,6 +382,9 @@ src/
 
 public/
   index.html            # Built-in browser UI (JioSaavn)
+
+start.sh                # Multi-service entrypoint (used by Docker / HF Spaces)
+Dockerfile              # Runs both services: Node on :7860, Python on :8000
 ```
 
 ---
@@ -403,6 +406,8 @@ public/
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `3000` | Server port |
+| `OPENMUSIC_TALLY_PATH` | `Jio Saavn/data/tally_counter.json` | Path to JioSaavn transition tally file |
+| `OPENMUSIC_SONGS_PATH` | `Jio Saavn/data/songs.json` | Path to JioSaavn song catalog file |
 
 ### YouTube Music (Python)
 
@@ -410,6 +415,7 @@ public/
 |---|---|---|
 | `BITSONGS_SONGS_PATH` | `data/songs.json` | Path to song catalog file |
 | `BITSONGS_TALLY_PATH` | `data/tally_counter.json` | Path to tally counter file |
+| `OPENMUSIC_CACHE_DIR` | `<app_dir>/song_cache` | Path to audio cache directory. Set to a persistent volume mount in HuggingFace Spaces to survive container restarts. |
 
 ---
 
