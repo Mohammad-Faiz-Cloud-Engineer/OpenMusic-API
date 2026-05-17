@@ -58,6 +58,14 @@ function ensureDataDir() {
   fs.mkdirSync(path.dirname(getTallyPath()), { recursive: true });
 }
 
+// Keys that would pollute Object.prototype. Stripped on both write (behavior.js)
+// and read (normalizeData below) so a poisoned tally file can't cause harm.
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function isSafeKey(key) {
+  return typeof key === 'string' && key.length > 0 && !UNSAFE_KEYS.has(key);
+}
+
 // ── Default / normalise ───────────────────────────────────────────────────
 function defaultTallyData() {
   return {
@@ -78,9 +86,10 @@ function normalizeData(raw) {
 
   const transitions = raw.transitions || {};
   for (const [src, targets] of Object.entries(transitions)) {
-    if (!src || typeof targets !== 'object') continue;
+    if (!src || !isSafeKey(src) || typeof targets !== 'object') continue;
     const normTargets = {};
     for (const [tgt, count] of Object.entries(targets)) {
+      if (!isSafeKey(tgt)) continue;
       const n = parseInt(count, 10);
       if (n > 0) normTargets[String(tgt)] = n;
     }

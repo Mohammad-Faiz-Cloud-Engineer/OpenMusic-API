@@ -8,6 +8,14 @@
 
 const { loadAndSaveTally, applyDecayIfNeeded, cleanupTallyData } = require('./storage');
 
+// Keys that would pollute Object.prototype if used in a plain-object lookup.
+// We reject them at the entry point so they never reach the tally store.
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function isSafeKey(key) {
+  return key.length > 0 && !UNSAFE_KEYS.has(key);
+}
+
 /**
  * Record that `currentSongId` was played immediately after `previousSongId`.
  * No-op if either ID is empty or they are the same song.
@@ -16,6 +24,8 @@ async function updateTransition(previousSongId, currentSongId) {
   previousSongId = String(previousSongId || '').trim();
   currentSongId  = String(currentSongId  || '').trim();
   if (!previousSongId || !currentSongId || previousSongId === currentSongId) return;
+  // Reject prototype-polluting key names before they touch any object.
+  if (!isSafeKey(previousSongId) || !isSafeKey(currentSongId)) return;
 
   await loadAndSaveTally(data => {
     data = applyDecayIfNeeded(data);
@@ -39,7 +49,7 @@ async function updateTransition(previousSongId, currentSongId) {
  */
 async function getBehaviorRecommendations(songId, limit = 5) {
   songId = String(songId || '').trim();
-  if (!songId) return [];
+  if (!songId || !isSafeKey(songId)) return [];
 
   const data = await loadAndSaveTally(d => applyDecayIfNeeded(d));
 
