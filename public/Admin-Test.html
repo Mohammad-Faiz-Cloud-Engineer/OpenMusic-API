@@ -522,26 +522,40 @@ async function playTrack(card) {
   AUDIO.pause();
   AUDIO.removeAttribute('src');
 
-  if (currentSource === 'ytmusic') {
-    NP_ARTIST.textContent = `${artist || ''} \u00b7 YouTube Music`;
-    const ytUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
-    showToast(`YouTube Music cannot stream directly. Opening in YouTube...`, 'ok');
-    window.open(ytUrl, '_blank');
-    PLAYER_BAR.classList.remove('show');
-    return;
-  }
-
   card.classList.add('playing');
 
-  const playSrc = jiosaavnPlayStreamUrl(id);
-  if (!playSrc) {
-    showToast('Invalid track ID or API base URL', 'err');
-    card.classList.remove('playing');
-    PLAYER_BAR.classList.remove('show');
-    return;
-  }
-
   try {
+    let playSrc;
+    if (currentSource === 'ytmusic') {
+      const apiBase = resolveApiBase();
+      if (!apiBase) {
+        showToast('Set a valid API base URL first', 'err');
+        card.classList.remove('playing');
+        PLAYER_BAR.classList.remove('show');
+        return;
+      }
+      const playUrl = new URL('/ytmusic/play', apiBase);
+      playUrl.searchParams.set('id', id);
+      playUrl.searchParams.set('artist', artist || '');
+      playUrl.searchParams.set('title', title || '');
+      const playRes = await fetch(playUrl);
+      if (!playRes.ok) {
+        const err = await playRes.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${playRes.status}`);
+      }
+      const playData = await playRes.json();
+      if (!playData.url) throw new Error('No stream URL returned');
+      playSrc = playData.url;
+    } else {
+      playSrc = jiosaavnPlayStreamUrl(id);
+      if (!playSrc) {
+        showToast('Invalid track ID or API base URL', 'err');
+        card.classList.remove('playing');
+        PLAYER_BAR.classList.remove('show');
+        return;
+      }
+    }
+
     AUDIO.setAttribute('src', playSrc);
     AUDIO.load();
     await AUDIO.play();

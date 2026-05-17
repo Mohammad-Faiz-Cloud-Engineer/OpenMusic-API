@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const jiosaavnRoutes = require('../Jio Saavn/routes/jiosaavn');
+const ytmusicRoutes = require('./routes/ytmusic');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,13 +31,17 @@ app.use((_req, res, next) => {
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', sources: ['jiosaavn'] });
+  res.json({ status: 'ok', sources: ['jiosaavn', 'ytmusic'] });
 });
 
 app.use('/jiosaavn', jiosaavnRoutes);
+app.use('/ytmusic', ytmusicRoutes);
 
 app.use((_req, res) => {
-  res.status(404).json({ error: 'not_found', message: 'Endpoint not found. Available: /health, /jiosaavn/search, /jiosaavn/suggestions, /jiosaavn/album/:id, /jiosaavn/playlist/:id, /jiosaavn/charts, /jiosaavn/track/:id, /jiosaavn/track/:id/play, /jiosaavn/recommend, /jiosaavn/up_next' });
+  res.status(404).json({
+    error: 'not_found',
+    message: 'Endpoint not found. Available: /health, /jiosaavn/*, /ytmusic/search, /ytmusic/suggestions, /ytmusic/album/:id, /ytmusic/playlist/:id, /ytmusic/charts, /ytmusic/track/:id, /ytmusic/play',
+  });
 });
 
 app.use((err, _req, res, _next) => {
@@ -55,7 +60,7 @@ process.on('uncaughtException', (err) => {
 
 const server = app.listen(PORT, () => {
   console.log(`OpenMusic API running on http://localhost:${PORT}`);
-  console.log('Sources: /jiosaavn');
+  console.log('Sources: /jiosaavn, /ytmusic');
 });
 
 function shutdown(signal) {

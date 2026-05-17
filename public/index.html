@@ -695,17 +695,21 @@ async function playTrack(id, title, artist, thumbnail, source) {
   audio.removeAttribute('src');
   audio.style.display = '';
 
-  if (source === 'ytmusic') {
-    $('npArtist').textContent = `${artist || ''} \u00b7 YouTube Music`;
-    const ytUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
-    showToast(`YouTube Music cannot stream directly. Opening "${title}" in YouTube...`);
-    window.open(ytUrl, '_blank');
-    playerBar.classList.remove('show');
-    return;
-  }
-
   try {
-    audio.setAttribute('src', `${API}/jiosaavn/track/${encodeURIComponent(id)}/play`);
+    if (source === 'ytmusic') {
+      const playRes = await fetch(
+        `${API}/ytmusic/play?id=${encodeURIComponent(id)}&artist=${encodeURIComponent(artist || '')}&title=${encodeURIComponent(title || '')}`,
+      );
+      if (!playRes.ok) {
+        const err = await playRes.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${playRes.status}`);
+      }
+      const playData = await playRes.json();
+      if (!playData.url) throw new Error('No stream URL returned');
+      audio.setAttribute('src', playData.url);
+    } else {
+      audio.setAttribute('src', `${API}/jiosaavn/track/${encodeURIComponent(id)}/play`);
+    }
     audio.load();
     await audio.play();
   } catch (e) {
