@@ -16,6 +16,25 @@ function isSafeKey(key) {
   return key.length > 0 && !UNSAFE_KEYS.has(key);
 }
 
+function createMap() {
+  return Object.create(null);
+}
+
+function isObjectLike(value) {
+  return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** Return a prototype-less map, copying plain-object data when needed. */
+function normalizeMap(value) {
+  if (!isObjectLike(value)) return createMap();
+  if (Object.getPrototypeOf(value) === null) return value;
+  const map = createMap();
+  for (const key of Object.keys(value)) {
+    map[key] = value[key];
+  }
+  return map;
+}
+
 /**
  * Record that `currentSongId` was played immediately after `previousSongId`.
  * No-op if either ID is empty or they are the same song.
@@ -30,8 +49,13 @@ async function updateTransition(previousSongId, currentSongId) {
   await loadAndSaveTally(data => {
     data = applyDecayIfNeeded(data);
 
-    const transitions = data.transitions || (data.transitions = {});
-    const targets = transitions[previousSongId] || (transitions[previousSongId] = {});
+    data.transitions = normalizeMap(data.transitions);
+    const transitions = data.transitions;
+    const existingTargets = transitions[previousSongId];
+    const targets = normalizeMap(existingTargets);
+    if (existingTargets !== targets) {
+      transitions[previousSongId] = targets;
+    }
     targets[currentSongId] = (targets[currentSongId] || 0) + 1;
 
     const order = data._meta.song_order || (data._meta.song_order = []);
@@ -53,7 +77,8 @@ async function getBehaviorRecommendations(songId, limit = 5) {
 
   const data = await loadAndSaveTally(d => applyDecayIfNeeded(d));
 
-  const targetMap = (data.transitions || {})[songId] || {};
+  const transitions = normalizeMap(data.transitions);
+  const targetMap = normalizeMap(transitions[songId]);
   return Object.entries(targetMap)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, Math.max(0, limit))
