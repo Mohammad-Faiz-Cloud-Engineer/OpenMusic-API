@@ -35,7 +35,7 @@ app.get('/health', (_req, res) => {
 app.use('/jiosaavn', jiosaavnRoutes);
 
 app.use((_req, res) => {
-  res.status(404).json({ error: 'not_found', message: 'Endpoint not found. Available: /health, /jiosaavn/*' });
+  res.status(404).json({ error: 'not_found', message: 'Endpoint not found. Available: /health, /jiosaavn/search, /jiosaavn/suggestions, /jiosaavn/album/:id, /jiosaavn/playlist/:id, /jiosaavn/charts, /jiosaavn/track/:id, /jiosaavn/track/:id/play, /jiosaavn/recommend, /jiosaavn/up_next' });
 });
 
 app.use((err, _req, res, _next) => {

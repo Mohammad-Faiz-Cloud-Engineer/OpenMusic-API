@@ -44,6 +44,8 @@ Opens on `http://localhost:3000`. Hit `/health` to check.
 | `GET` | `/jiosaavn/charts` | Trending charts |
 | `GET` | `/jiosaavn/track/:id` | Get stream URL for a track |
 | `GET` | `/jiosaavn/track/:id/play` | **Proxy audio stream** (pipe through server) |
+| `GET` | `/jiosaavn/recommend?song_id=<id>` | Behavior + content-based recommendations |
+| `GET` | `/jiosaavn/up_next?song_id=<id>&limit=<n>` | Ordered up-next queue (max 50) |
 
 ### Examples
 
@@ -63,6 +65,21 @@ console.log(streamData.stream_url);
 // Play audio in browser
 const audio = new Audio(`${BASE}/jiosaavn/track/0gKfBAgi/play`);
 audio.play();
+
+// Recommendations for a song (call after the user plays a track)
+const recRes = await fetch(`${BASE}/jiosaavn/recommend?song_id=0gKfBAgi`);
+const recData = await recRes.json();
+console.log(recData.behavior_based); // songs played after this one historically
+console.log(recData.content_based);  // songs with similar artist/language/duration
+
+// Up-next queue (ordered, ready to enqueue in a player)
+const upRes = await fetch(`${BASE}/jiosaavn/up_next?song_id=0gKfBAgi&limit=5`);
+const upData = await upRes.json();
+upData.queue.forEach(s => console.log(s.title, '-', s.reason));
+
+// Record a transition (tell the engine song B played after song A)
+// Pass previous_song_id as a query param when fetching the next track URL:
+await fetch(`${BASE}/jiosaavn/track/NEW_SONG_ID?previous_song_id=0gKfBAgi`);
 ```
 
 ```python
@@ -132,6 +149,32 @@ print(stream['stream_url'])
 }
 ```
 
+**Recommendations**
+```json
+{
+  "source": "jiosaavn",
+  "song_id": "0gKfBAgi",
+  "behavior_based": [
+    { "id": "abc123", "title": "Song A", "artist": "Artist A", "duration_seconds": 210, "thumbnail": "..." }
+  ],
+  "content_based": [
+    { "id": "def456", "title": "Song B", "artist": "Artist A", "duration_seconds": 195, "thumbnail": "..." }
+  ]
+}
+```
+
+**Up Next**
+```json
+{
+  "source": "jiosaavn",
+  "song_id": "0gKfBAgi",
+  "queue": [
+    { "id": "abc123", "title": "Song A", "artist": "Artist A", "reason": "behavior" },
+    { "id": "def456", "title": "Song B", "artist": "Artist A", "reason": "content" }
+  ]
+}
+```
+
 ### How It Works
 
 ```
@@ -141,6 +184,8 @@ Client → Express → Scraper (JioSaavn) → Normalizer → Cache → JSON
 - In-memory cache checked first on every request
 - Stream URLs resolved via auth token (320kbps → 128kbps fallback), DES decrypt as last resort
 - `/jiosaavn/track/:id/play` proxies audio through the server to bypass CORS/Referer restrictions
+- Recommendation catalog is auto-populated whenever search/album/playlist results are fetched
+- Pass `?previous_song_id=<id>` to `/jiosaavn/track/:id` to record a play transition
 
 ### Cache TTLs
 
@@ -304,6 +349,15 @@ Jio Saavn/
     cache.js            # In-memory cache instances
     decrypt.js          # DES stream URL decryption
     normalize.js        # Response normalizers
+  recommendation/
+    index.js            # Public API barrel
+    storage.js          # Atomic tally file I/O + decay
+    behavior.js         # Transition tally → behavior recommendations
+    content.js          # Cosine similarity → content recommendations
+    engine.js           # Combined getRecommendations / getUpNext
+  data/                 # Runtime-generated (gitignored)
+    songs.json          # Song catalog (auto-populated)
+    tally_counter.json  # Transition tally (auto-populated)
 
 YouTube Music/
   app.py                # FastAPI entry point

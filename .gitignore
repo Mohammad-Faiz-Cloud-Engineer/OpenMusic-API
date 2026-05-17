@@ -52,3 +52,7 @@ YouTube Music/.pytest_cache/
 YouTube Music/venv/
 YouTube Music/.venv/
 YouTube Music/song_cache/
+
+# JioSaavn recommendation engine runtime data (auto-populated, not source)
+Jio Saavn/data/songs.json
+Jio Saavn/data/tally_counter.json

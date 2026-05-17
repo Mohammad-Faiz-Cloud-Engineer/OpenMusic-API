@@ -3,6 +3,7 @@ const axios = require('axios');
 const jiosaavn = require('../scrapers/jiosaavn');
 const { searchCache, streamCache, metadataCache } = require('../utils/cache');
 const { trim } = require('../utils/normalize');
+const { getRecommendations, getUpNext, updateTransition, getSongsByIds } = require('../recommendation');
 
 const router = Router();
 
@@ -147,6 +148,12 @@ router.get('/track/:id', async (req, res) => {
     return res.status(400).json({ error: 'missing_id', message: 'Track ID is required' });
   }
 
+  // Record the transition for the recommendation engine
+  const previousId = trim(req.query.previous_song_id);
+  if (previousId && previousId !== id) {
+    updateTransition(previousId, id).catch(() => {});
+  }
+
   const cacheKey = `stream:jiosaavn:${id}`;
   let cached = streamCache.get(cacheKey);
 
@@ -269,6 +276,68 @@ router.get('/track/:id/play', async (req, res) => {
       return res.status(504).json({ error: 'proxy_timeout', message: 'Stream source timed out' });
     }
     res.status(502).json({ error: 'proxy_error', message: `Failed to proxy stream: ${err.message}` });
+  }
+});
+
+// ── Recommendations ───────────────────────────────────────────────────────
+// GET /jiosaavn/recommend?song_id=<id>
+// Returns behavior_based and content_based song lists, hydrated with
+// full song metadata from the local catalog.
+router.get('/recommend', async (req, res) => {
+  const songId = trim(req.query.song_id);
+  if (!songId) {
+    return res.status(400).json({ error: 'missing_song_id', message: 'Query parameter "song_id" is required' });
+  }
+
+  try {
+    const { behavior_based, content_based } = await getRecommendations(songId);
+    const allIds = [...new Set([...behavior_based, ...content_based])];
+    const songsById = Object.fromEntries(getSongsByIds(allIds).map(s => [s.id, s]));
+
+    res.json({
+      source: 'jiosaavn',
+      song_id: songId,
+      behavior_based: behavior_based.map(id => songsById[id]).filter(Boolean),
+      content_based:  content_based.map(id => songsById[id]).filter(Boolean),
+    });
+  } catch (err) {
+    console.error('[jiosaavn] recommend error:', err.message);
+    res.status(500).json({ error: 'recommend_failed', source: 'jiosaavn', message: err.message });
+  }
+});
+
+// ── Up Next ───────────────────────────────────────────────────────────────
+// GET /jiosaavn/up_next?song_id=<id>&limit=<n>  (limit default 10, max 50)
+// Returns an ordered queue of songs to play next, each tagged with the
+// reason it was chosen ('behavior' or 'content').
+const UP_NEXT_MAX = 50;
+
+router.get('/up_next', async (req, res) => {
+  const songId = trim(req.query.song_id);
+  if (!songId) {
+    return res.status(400).json({ error: 'missing_song_id', message: 'Query parameter "song_id" is required' });
+  }
+
+  const limit = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 10), UP_NEXT_MAX);
+
+  try {
+    const entries = await getUpNext(songId, limit);
+    const songsById = Object.fromEntries(
+      getSongsByIds(entries.map(e => e.song_id)).map(s => [s.id, s])
+    );
+
+    const queue = entries
+      .map(e => {
+        const song = songsById[e.song_id];
+        if (!song) return null;
+        return { ...song, reason: e.reason };
+      })
+      .filter(Boolean);
+
+    res.json({ source: 'jiosaavn', song_id: songId, queue });
+  } catch (err) {
+    console.error('[jiosaavn] up_next error:', err.message);
+    res.status(500).json({ error: 'up_next_failed', source: 'jiosaavn', message: err.message });
   }
 });
 
