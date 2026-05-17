@@ -53,7 +53,7 @@ Opens on `http://localhost:3000`. Hit `/health` to check.
 ### Examples
 
 ```javascript
-const BASE = 'https://your-api.hf.space';
+const BASE = 'https://LocalFind-OpenMusic-API.hf.space';
 
 // Search
 const res = await fetch(`${BASE}/jiosaavn/search?q=tere naal`);
@@ -87,7 +87,7 @@ await fetch(`${BASE}/jiosaavn/track/NEW_SONG_ID?previous_song_id=0gKfBAgi`);
 
 ```python
 import requests
-BASE = 'https://your-api.hf.space'
+BASE = 'https://LocalFind-OpenMusic-API.hf.space'
 
 results = requests.get(f'{BASE}/jiosaavn/search', params={'q': 'tere naal'}).json()
 print(results['results'][0]['title'])
@@ -202,7 +202,7 @@ Client → Express → Scraper (JioSaavn) → Normalizer → Cache → JSON
 
 | Layer | Tool |
 |---|---|
-| Runtime | Node.js >= 18 |
+| Runtime | Node.js >= 22 |
 | Framework | Express 4 |
 | HTTP client | Axios |
 | Caching | node-cache (in-memory) |
@@ -244,7 +244,7 @@ Opens on `http://localhost:8000`.
 
 ```python
 import requests
-BASE = 'http://localhost:8000'
+BASE = 'https://LocalFind-OpenMusic-API.hf.space'
 
 # Search
 results = requests.get(f'{BASE}/api/mobile/search', params={'q': 'tere naal'}).json()
@@ -290,7 +290,7 @@ for item in up_next:
 ```json
 {
   "source": "youtube",
-  "url": "http://localhost:8000/api/mobile/stream_proxy?url=...&headers=...",
+  "url": "https://LocalFind-OpenMusic-API.hf.space/api/mobile/stream_proxy?url=...&headers=...",
   "direct_url": "https://rr1---sn-....googlevideo.com/...",
   "headers": { "User-Agent": "..." }
 }
@@ -337,6 +337,100 @@ Client → FastAPI → iTunes (metadata) + yt-dlp (audio) → Recommendation Eng
 | HTTP client | requests |
 | Recommendation | Custom cosine similarity + tally engine |
 | Concurrency | threading.Lock + atomic file writes |
+
+---
+
+## Self-Hosting
+
+The API is live at `https://LocalFind-OpenMusic-API.hf.space` — but if you want to run your own instance, there are three ways to do it.
+
+### Option 1 — HuggingFace Spaces (recommended)
+
+The easiest path. HF Spaces builds and runs the Docker image for you at no cost.
+
+1. [Create a new Space](https://huggingface.co/new-space) and choose **Docker** as the SDK
+2. Fork or clone this repo into the Space (or push directly via `git remote add space https://huggingface.co/spaces/<your-username>/<your-space-name>`)
+3. Make sure your `README.md` front-matter has:
+   ```yaml
+   sdk: docker
+   app_port: 7860
+   ```
+4. Push to the Space — HF will build the image and start the container automatically
+5. Your API will be live at `https://<your-username>-<your-space-name>.hf.space`
+
+> **Persistent audio cache:** By default the `song_cache/` directory is wiped on every container restart. To keep cached `.m4a` files across restarts, enable [Persistent Storage](https://huggingface.co/docs/hub/spaces-storage) on your Space and set the `OPENMUSIC_CACHE_DIR` environment variable to `/data` in your Space settings.
+
+---
+
+### Option 2 — Docker (any server or VPS)
+
+Requires Docker installed. Works on any Linux/macOS/Windows machine or cloud VM.
+
+```bash
+# Clone the repo
+git clone https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API.git
+cd OpenMusic-API
+
+# Build the image
+docker build -t openmusic-api .
+
+# Run it
+docker run -d \
+  --name openmusic-api \
+  -p 7860:7860 \
+  --restart unless-stopped \
+  openmusic-api
+```
+
+The API will be available at `http://localhost:7860`.
+
+To persist the audio cache across container restarts, mount a volume:
+
+```bash
+docker run -d \
+  --name openmusic-api \
+  -p 7860:7860 \
+  -v openmusic-cache:/data \
+  -e OPENMUSIC_CACHE_DIR=/data \
+  --restart unless-stopped \
+  openmusic-api
+```
+
+---
+
+### Option 3 — Run services directly (local development)
+
+No Docker needed. Run each service in its own terminal.
+
+**JioSaavn (Node.js) — terminal 1:**
+```bash
+npm install
+npm start
+# Runs on http://localhost:7860 (or PORT env var)
+```
+
+**YouTube Music (Python) — terminal 2:**
+```bash
+cd "YouTube Music"
+pip install -r requirements.txt
+python app.py
+# Runs on http://localhost:8000
+```
+
+Both services are fully independent — you can run either one without the other.
+
+---
+
+### Changing the base URL in your app
+
+Once hosted, replace the base URL in your client:
+
+```javascript
+// Point to your own instance instead of the public one
+const BASE = 'https://<your-username>-<your-space-name>.hf.space';
+// or for local Docker:
+const BASE = 'http://localhost:7860';
+```
 
 ---
 
