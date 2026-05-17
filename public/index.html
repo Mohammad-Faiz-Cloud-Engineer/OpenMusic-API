@@ -35,11 +35,40 @@ a { color: var(--accent); text-decoration: none; }
   border-bottom: 1px solid var(--surface2);
   position: sticky; top: 0; z-index: 100;
 }
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
 .header h1 {
   font-size: 20px;
   display: flex; align-items: center; gap: 10px;
 }
 .header h1 span { color: var(--accent); }
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.header-nav a {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--surface2);
+  background: var(--surface2);
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.header-nav a:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--surface3);
+}
 
 .search-section {
   max-width: 800px;
@@ -368,7 +397,13 @@ a { color: var(--accent); text-decoration: none; }
 <body>
 
 <div class="header">
-  <h1>&#9835; Music API Tester</h1>
+  <div class="header-inner">
+    <h1>&#9835; Music API Tester</h1>
+    <nav class="header-nav" aria-label="Other tools">
+      <a href="/Admin-Test.html">Admin Test</a>
+      <a href="/tester.html">API Tester</a>
+    </nav>
+  </div>
 </div>
 
 <div class="search-section">
