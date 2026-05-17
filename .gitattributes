@@ -1,5 +1,0 @@
-* text=auto
-
-# Shell entrypoints must use LF — CRLF breaks Alpine /bin/sh (HF Spaces Docker).
-*.sh text eol=lf
-Dockerfile text eol=lf
