@@ -1,0 +1,5 @@
+# Minimal dependencies for running tests in CI.
+# The recommendation engine only needs numpy; the heavy runtime deps
+# (fastapi, uvicorn, yt-dlp) are not imported by the test suite.
+numpy==2.3.3
+pytest==8.3.5

@@ -31,6 +31,6 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: 'YouTube Music/requirements.txt'
-      - run: pip install -r requirements.txt
+          cache-dependency-path: 'YouTube Music/requirements-test.txt'
+      - run: pip install -r requirements-test.txt
       - run: python -m pytest tests/ -v
