@@ -60,74 +60,7 @@ UP_NEXT_MAX_LIMIT = 50
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-_YTDLP_COOKIE_PATH = CACHE_DIR / ".youtube_cookies.txt"
-
-
-def _normalize_cookie_blob(raw: str) -> str:
-    """HF secrets / .env may use literal \\n instead of newlines."""
-    text = (raw or "").strip()
-    if not text:
-        return ""
-    if "\\n" in text and "\n" not in text.split("# Netscape", 1)[0]:
-        text = text.replace("\\n", "\n")
-    return text
-
-
-def has_youtube_cookies() -> bool:
-    if os.environ.get("YTMUSIC_YOUTUBE_COOKIES_FILE", "").strip():
-        path = Path(os.environ["YTMUSIC_YOUTUBE_COOKIES_FILE"].strip())
-        return path.is_file() and path.stat().st_size > 0
-    return bool(_normalize_cookie_blob(os.environ.get("YTMUSIC_YOUTUBE_COOKIES", "")))
-
-
-def get_ytdlp_cookiefile() -> str | None:
-    """
-    Resolve yt-dlp cookie file from env (Hugging Face secret or .env).
-
-    Set YTMUSIC_YOUTUBE_COOKIES to the full Netscape cookies.txt export for
-    youtube.com, or YTMUSIC_YOUTUBE_COOKIES_FILE to a path inside the container.
-    """
-    file_env = os.environ.get("YTMUSIC_YOUTUBE_COOKIES_FILE", "").strip()
-    if file_env:
-        path = Path(file_env)
-        if path.is_file():
-            return str(path.resolve())
-
-    blob = _normalize_cookie_blob(os.environ.get("YTMUSIC_YOUTUBE_COOKIES", ""))
-    if not blob:
-        return None
-    if "# Netscape HTTP Cookie File" not in blob and ".youtube.com" not in blob:
-        logger.warning(
-            "YTMUSIC_YOUTUBE_COOKIES is set but does not look like Netscape cookies.txt"
-        )
-    _YTDLP_COOKIE_PATH.write_text(blob, encoding="utf-8")
-    try:
-        os.chmod(_YTDLP_COOKIE_PATH, 0o600)
-    except OSError:
-        pass
-    return str(_YTDLP_COOKIE_PATH)
-
-
-def ytdlp_play_allowed() -> bool:
-    if has_youtube_cookies():
-        return True
-    if os.environ.get("YTMUSIC_SKIP_YTDLP", "").lower() in ("1", "true", "yes"):
-        return False
-    return os.environ.get("YTMUSIC_ENABLE_YTDLP", "").lower() in ("1", "true", "yes")
-
-
-def apply_ytdlp_cookies(ydl_opts: dict) -> dict:
-    cookiefile = get_ytdlp_cookiefile()
-    if cookiefile:
-        ydl_opts = dict(ydl_opts)
-        ydl_opts["cookiefile"] = cookiefile
-    return ydl_opts
-
-
 executor = ThreadPoolExecutor(max_workers=2)
-
-if has_youtube_cookies():
-    logger.info("YouTube cookies loaded from env — yt-dlp full playback enabled")
 
 _BLOCKED_PROXY_HOSTS = frozenset({
     "localhost",
@@ -435,13 +368,13 @@ def download_task(song_id, artist, title):
     if filepath.exists():
         return
     query = f"{artist} - {title} audio"
-    ydl_opts = apply_ytdlp_cookies({
+    ydl_opts = {
         "format": "bestaudio[ext=m4a]/best",
         "outtmpl": str(filepath),
         "quiet": True,
         "noplaylist": True,
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
-    })
+        "extractor_args": {"youtube": {"client": ["android", "ios"]}},
+    }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([f"ytsearch1:{query}"])
@@ -485,105 +418,42 @@ def build_proxy_response(url: str, incoming_headers, headers_json: str):
         return PlainTextResponse("Stream error", status_code=502)
 
 
-def public_base_url(request: Request) -> str:
-    """Honor reverse-proxy headers (HF Spaces → Node → Python on :8000)."""
-    proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "https").split(",")[0].strip()
-    host = (
-        request.headers.get("x-forwarded-host")
-        or request.headers.get("host")
-        or request.url.netloc
-    )
-    host = host.split(",")[0].strip()
-    return f"{proto}://{host}".rstrip("/")
-
-
-def _extract_youtube_audio(artist: str, title: str):
-    """Try several yt-dlp client/query combos (cloud IPs are often blocked on first attempt)."""
-    search_base = f"{artist} - {title}".strip(" -")
-    queries = [
-        f"{search_base} audio",
-        search_base,
-        f"{title} {artist}".strip(),
-        f"{search_base} official audio",
-    ]
-    client_sets = [
-        ["android_vr", "android", "web"],
-        ["mweb", "web"],
-        ["tv_embedded", "web"],
-        ["ios", "android"],
-    ]
-    ydl_base = {
-        "format": "bestaudio[ext=m4a]/bestaudio/best",
-        "quiet": True,
-        "noplaylist": True,
-        "socket_timeout": 30,
-        "retries": 3,
-        "fragment_retries": 3,
-        "no_warnings": True,
-    }
-    last_exc = None
-    seen_queries = set()
-    for query in queries:
-        q = query.strip()
-        if not q or q in seen_queries:
-            continue
-        seen_queries.add(q)
-        for clients in client_sets:
-            opts = apply_ytdlp_cookies({
-                **ydl_base,
-                "extractor_args": {"youtube": {"player_client": clients}},
-            })
-            try:
-                with yt_dlp.YoutubeDL(opts) as ydl:
-                    info = ydl.extract_info(f"ytsearch1:{q}", download=False)
-                video = info["entries"][0] if info and "entries" in info else info
-                if not video or not video.get("url"):
-                    raise RuntimeError("yt-dlp returned no stream URL")
-                return video, video.get("http_headers", {})
-            except Exception as exc:
-                last_exc = exc
-                logger.warning("yt-dlp failed q=%r clients=%s: %s", q, clients, exc)
-    raise last_exc or RuntimeError("Could not resolve YouTube audio")
-
-
 def render_play_response(request: Request, song_id: str, artist: str, title: str):
     filename = f"{song_id}.m4a"
     filepath = CACHE_DIR / filename
     if filepath.exists():
-        base_url = public_base_url(request)
+        base_url = str(request.base_url).rstrip("/")
         return JSONResponse({"source": "local", "url": f"{base_url}/api/mobile/stream_cache/{filename}"})
 
-    if not ytdlp_play_allowed():
-        return JSONResponse(
-            {
-                "error": "play_disabled",
-                "message": "yt-dlp is off on this host. Add YTMUSIC_YOUTUBE_COOKIES (HF secret) for full YouTube playback.",
-            },
-            status_code=503,
-        )
-
-    try:
-        video, http_headers = _extract_youtube_audio(artist, title)
-        base_url = public_base_url(request)
-        proxy_url = (
-            f"{base_url}/api/mobile/stream_proxy"
-            f"?url={quote(video['url'])}"
-            f"&headers={quote(json.dumps(http_headers))}"
-        )
-        return JSONResponse(
-            {
-                "source": "youtube",
-                "url": proxy_url,
-                "direct_url": video["url"],
-                "headers": http_headers,
-            }
-        )
-    except Exception as exc:
-        logger.error("render_play_response failed for song_id=%s: %s", song_id, exc)
-        return JSONResponse(
-            {"error": "play_failed", "message": "Could not resolve audio for this track (YouTube blocked or unavailable)."},
-            status_code=404,
-        )
+    query = f"{artist} - {title} audio"
+    ydl_opts = {
+        "format": "bestaudio[ext=m4a]/bestaudio/best",
+        "quiet": True,
+        "noplaylist": True,
+        "extractor_args": {"youtube": {"client": ["android", "ios"]}},
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        try:
+            info = ydl.extract_info(f"ytsearch1:{query}", download=False)
+            video = info["entries"][0] if "entries" in info else info
+            http_headers = video.get("http_headers", {})
+            base_url = str(request.base_url).rstrip("/")
+            proxy_url = (
+                f"{base_url}/api/mobile/stream_proxy"
+                f"?url={quote(video['url'])}"
+                f"&headers={quote(json.dumps(http_headers))}"
+            )
+            return JSONResponse(
+                {
+                    "source": "youtube",
+                    "url": proxy_url,
+                    "direct_url": video["url"],
+                    "headers": http_headers,
+                }
+            )
+        except Exception as exc:
+            logger.error("render_play_response failed for song_id=%s: %s", song_id, exc)
+            return JSONResponse({"error": "Song not found"}, status_code=404)
 
 
 # ---------------------------------------------------------------------------
