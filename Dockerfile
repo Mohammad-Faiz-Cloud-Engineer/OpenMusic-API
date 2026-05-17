@@ -60,6 +60,7 @@ RUN mkdir -p \
       /app/data \
       "/app/YouTube Music/data" \
       "/app/YouTube Music/song_cache" \
+    && sed -i 's/\r$//' /app/start.sh \
     && chmod +x /app/start.sh \
     && chown -R node:node /app
 
