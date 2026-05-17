@@ -9,34 +9,22 @@ app_port: 7860
 
 # OpenMusic API
 
-A JioSaavn music API proxy. No API keys, no sign-up, no database. Just a JSON API and a built-in browser UI.
+A two-service music API repo:
 
-**Base path:** `/jiosaavn/*` — search, stream, and proxy audio from JioSaavn.
+| Service | Stack | Folder |
+|---|---|---|
+| **JioSaavn** | Node.js + Express | `Jio Saavn/` |
+| **YouTube Music** | Python + FastAPI | `YouTube Music/` |
 
----
-
-## Use the hosted API
-
-Already deployed on Hugging Face Spaces:
-
-```
-https://LocalFind-OpenMusic-API.hf.space
-```
+Both services are independent — each has its own dependencies, entry point, and can be deployed separately.
 
 ---
 
-## Deploy on Hugging Face (1 click)
+## JioSaavn Service
 
-1. Go to [huggingface.co/spaces](https://huggingface.co/spaces) and click **Create new Space**
-2. Give it a name, set **SDK** to **Docker**
-3. Clone the repo and push, or connect your GitHub repo
-4. That's it — the API will be live at `https://<your-space>.hf.space`
+Search, stream, and proxy audio from JioSaavn. No API keys required.
 
-> **No config needed.** The `PORT` env var is set automatically by Hugging Face.
-
----
-
-## Deploy locally
+### Deploy locally
 
 ```bash
 npm install
@@ -45,11 +33,7 @@ npm start
 
 Opens on `http://localhost:3000`. Hit `/health` to check.
 
----
-
-## API Endpoints
-
-### JioSaavn `(/jiosaavn/*)`
+### API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -61,81 +45,40 @@ Opens on `http://localhost:3000`. Hit `/health` to check.
 | `GET` | `/jiosaavn/track/:id` | Get stream URL for a track |
 | `GET` | `/jiosaavn/track/:id/play` | **Proxy audio stream** (pipe through server) |
 
----
-
-## Copy-Paste Examples
-
-### JavaScript (fetch)
+### Examples
 
 ```javascript
-const BASE = 'https://LocalFind-OpenMusic-API.hf.space';
+const BASE = 'https://your-api.hf.space';
 
-// Search songs
-const searchRes = await fetch(`${BASE}/jiosaavn/search?q=tere naal`);
-const searchData = await searchRes.json();
-console.log(searchData.results);
-// [{ id, title, artist, album, duration_seconds, thumbnail, stream_url }, ...]
+// Search
+const res = await fetch(`${BASE}/jiosaavn/search?q=tere naal`);
+const data = await res.json();
+console.log(data.results); // [{ id, title, artist, album, duration_seconds, thumbnail, stream_url }]
 
-// Get album details
-const albumRes = await fetch(`${BASE}/jiosaavn/album/70160165`);
-const albumData = await albumRes.json();
-console.log(albumData);
-// { id, title, artist, year, song_count, duration_seconds, thumbnail, tracks: [...] }
-
-// Get playlist
-const plRes = await fetch(`${BASE}/jiosaavn/playlist/1134543272`);
-const plData = await plRes.json();
-console.log(plData);
-
-// Trending charts
-const chartsRes = await fetch(`${BASE}/jiosaavn/charts`);
-const chartsData = await chartsRes.json();
-console.log(chartsData.charts);
-
-// Get playable stream URL for a track
-const streamRes = await fetch(`${BASE}/jiosaavn/track/0gKfBAgi`);
-const streamData = await streamRes.json();
+// Stream URL
+const stream = await fetch(`${BASE}/jiosaavn/track/0gKfBAgi`);
+const streamData = await stream.json();
 console.log(streamData.stream_url);
 
-// Play audio in browser (uses server-side proxy)
-const audio = new Audio();
-audio.src = `${BASE}/jiosaavn/track/0gKfBAgi/play`;
+// Play audio in browser
+const audio = new Audio(`${BASE}/jiosaavn/track/0gKfBAgi/play`);
 audio.play();
 ```
 
-### Python (requests)
-
 ```python
 import requests
+BASE = 'https://your-api.hf.space'
 
-BASE = 'https://LocalFind-OpenMusic-API.hf.space'
-
-search = requests.get(f'{BASE}/jiosaavn/search', params={'q': 'tere naal'}).json()
-print(search['results'][0]['title'])
-
-album = requests.get(f'{BASE}/jiosaavn/album/70160165').json()
-print(album['title'], album['song_count'], 'tracks')
+results = requests.get(f'{BASE}/jiosaavn/search', params={'q': 'tere naal'}).json()
+print(results['results'][0]['title'])
 
 stream = requests.get(f'{BASE}/jiosaavn/track/0gKfBAgi').json()
-print('Stream URL:', stream['stream_url'])
+print(stream['stream_url'])
 ```
 
-### cURL
+### Response Shapes
 
-```bash
-BASE=https://LocalFind-OpenMusic-API.hf.space
-
-curl "$BASE/jiosaavn/search?q=tere%20naal"
-curl "$BASE/jiosaavn/album/70160165"
-curl "$BASE/jiosaavn/track/0gKfBAgi"
-```
-
----
-
-## Response Shapes
-
-### Search results
-
+**Search**
 ```json
 {
   "source": "jiosaavn",
@@ -147,15 +90,14 @@ curl "$BASE/jiosaavn/track/0gKfBAgi"
       "artist": "Dino James, Nikhita Gandhi",
       "album": "Tere Naal",
       "duration_seconds": 213,
-      "thumbnail": "https://c.saavncdn.com/738/...-500x500.jpg",
+      "thumbnail": "https://c.saavncdn.com/...-500x500.jpg",
       "stream_url": null
     }
   ]
 }
 ```
 
-### Stream URL
-
+**Stream URL**
 ```json
 {
   "id": "0gKfBAgi",
@@ -167,8 +109,7 @@ curl "$BASE/jiosaavn/track/0gKfBAgi"
 }
 ```
 
-### Album / Playlist
-
+**Album / Playlist**
 ```json
 {
   "source": "jiosaavn",
@@ -178,60 +119,28 @@ curl "$BASE/jiosaavn/track/0gKfBAgi"
   "year": 2023,
   "song_count": 1,
   "duration_seconds": 213,
-  "thumbnail": "https://c.saavncdn.com/738/...-500x500.jpg",
-  "tracks": [
-    {
-      "track_number": 1,
-      "id": "0gKfBAgi",
-      "title": "Tere Naal",
-      "artist": "Dino James, Nikhita Gandhi",
-      "album": "Tere Naal",
-      "duration_seconds": 213,
-      "thumbnail": "https://c.saavncdn.com/738/...-500x500.jpg",
-      "stream_url": null
-    }
-  ]
+  "thumbnail": "https://c.saavncdn.com/...-500x500.jpg",
+  "tracks": [{ "track_number": 1, "id": "0gKfBAgi", "title": "Tere Naal", ... }]
 }
 ```
 
-### Charts
-
+**Charts**
 ```json
 {
   "source": "jiosaavn",
-  "charts": [
-    {
-      "id": "1134543272",
-      "title": "Top Hits 2025",
-      "description": "50 songs",
-      "thumbnail": "https://c.saavncdn.com/...-500x500.jpg"
-    }
-  ]
+  "charts": [{ "id": "1134543272", "title": "Top Hits 2025", "description": "50 songs", "thumbnail": "..." }]
 }
 ```
 
-### Suggestions
-
-```json
-{
-  "source": "jiosaavn",
-  "query": "tere",
-  "suggestions": ["tere naal", "tere bina", "tere sang yara"]
-}
-```
-
----
-
-## How It Works
+### How It Works
 
 ```
-Browser / App → Express → Scraper (JioSaavn) → Normalizer → Cache → JSON
+Client → Express → Scraper (JioSaavn) → Normalizer → Cache → JSON
 ```
 
-- Each request checks an in-memory cache first
-- On a miss, the scraper fetches from JioSaavn, normalizes the response, caches it, and returns JSON
-- Stream URLs are resolved via auth token generation (320kbps → 128kbps fallback), with DES decrypt as a last resort
-- `/jiosaavn/track/:id/play` proxies the audio through the server to bypass CORS and Referer restrictions
+- In-memory cache checked first on every request
+- Stream URLs resolved via auth token (320kbps → 128kbps fallback), DES decrypt as last resort
+- `/jiosaavn/track/:id/play` proxies audio through the server to bypass CORS/Referer restrictions
 
 ### Cache TTLs
 
@@ -241,30 +150,12 @@ Browser / App → Express → Scraper (JioSaavn) → Normalizer → Cache → JS
 | Album / Playlist / Charts | 10 min | `/album`, `/playlist`, `/charts` |
 | Stream URLs | 25 min | `/track/:id` |
 
----
-
-## Built-in UI
-
-Open the root URL (`/`) in a browser for a dark-themed single-page app to browse, search, and play music. All vanilla JS, zero frameworks.
-
----
-
-## Rate Limiting
-
-120 requests per minute per IP. After that:
-
-```json
-{ "error": "rate_limited", "message": "Too many requests. Try again in a minute." }
-```
-
----
-
-## Tech Stack
+### Tech Stack
 
 | Layer | Tool |
 |---|---|
 | Runtime | Node.js >= 18 |
-| Web framework | Express 4 |
+| Framework | Express 4 |
 | HTTP client | Axios |
 | Caching | node-cache (in-memory) |
 | Decryption | crypto-js (DES/ECB) |
@@ -272,31 +163,196 @@ Open the root URL (`/`) in a browser for a dark-themed single-page app to browse
 
 ---
 
-## Environment Variables
+## YouTube Music Service
 
-| Variable | Default | Description |
+A FastAPI recommendation and playback service. Uses iTunes Search API for metadata, yt-dlp for audio, and a content + behavior-based recommendation engine.
+
+### Deploy locally
+
+```bash
+cd "YouTube Music"
+pip install -r requirements.txt
+python app.py
+```
+
+Opens on `http://localhost:8000`.
+
+### API Endpoints
+
+| Method | Endpoint | Description |
 |---|---|---|
-| `PORT` | `3000` | Server port (Hugging Face sets this to `7860` automatically) |
+| `GET` | `/api/mobile/search?q=<query>` | Search songs via iTunes |
+| `GET` | `/api/mobile/chart` | Top 25 iTunes India chart |
+| `GET` | `/api/mobile/recommend?song_id=<id>` | Behavior + content-based recommendations |
+| `GET` | `/api/mobile/up_next?song_id=<id>&limit=<n>` | Ordered up-next queue (max 50) |
+| `GET` | `/api/mobile/lyrics?artist=<a>&title=<t>` | Synced/plain lyrics via lrclib |
+| `GET` | `/api/mobile/play?id=<id>&artist=<a>&title=<t>` | Resolve playable audio URL via yt-dlp |
+| `GET` | `/api/mobile/stream_cache/<filename>` | Serve a locally cached `.m4a` file |
+| `GET` | `/api/mobile/stream_proxy?url=<url>` | Proxy an audio stream |
+| `POST` | `/api/mobile/cache_song` | Queue a song for background download |
+| `GET` | `/api/mobile/health` | Health check |
+
+### Examples
+
+```python
+import requests
+BASE = 'http://localhost:8000'
+
+# Search
+results = requests.get(f'{BASE}/api/mobile/search', params={'q': 'tere naal'}).json()
+print(results[0]['title'])
+
+# Get playable URL
+play = requests.get(f'{BASE}/api/mobile/play', params={
+    'id': '1073359419', 'artist': 'Arijit Singh', 'title': 'Tum Hi Ho'
+}).json()
+print(play['url'])
+
+# Recommendations
+recs = requests.get(f'{BASE}/api/mobile/recommend', params={'song_id': '1073359419'}).json()
+print(recs['behavior_based'], recs['content_based'])
+
+# Up next queue
+up_next = requests.get(f'{BASE}/api/mobile/up_next', params={'song_id': '1073359419', 'limit': 5}).json()
+for item in up_next:
+    print(item['title'], '-', item['reason'])
+```
+
+### Response Shapes
+
+**Search / Chart** — returns a list of song objects:
+```json
+[
+  {
+    "id": "1073359419",
+    "title": "Tum Hi Ho",
+    "artist": "Mithoon & Arijit Singh",
+    "artist_id": 266194090,
+    "album": "Aashiqui 2 (Original Motion Picture Soundtrack)",
+    "cover": "https://is1-ssl.mzstatic.com/.../200x200bb.jpg",
+    "cover_xl": "https://is1-ssl.mzstatic.com/.../600x600bb.jpg",
+    "duration": 261,
+    "genre": "Bollywood",
+    "cached": false
+  }
+]
+```
+
+**Play**
+```json
+{
+  "source": "youtube",
+  "url": "http://localhost:8000/api/mobile/stream_proxy?url=...&headers=...",
+  "direct_url": "https://rr1---sn-....googlevideo.com/...",
+  "headers": { "User-Agent": "..." }
+}
+```
+
+**Recommendations**
+```json
+{
+  "behavior_based": [{ "id": "...", "title": "...", "cached": false }],
+  "content_based":  [{ "id": "...", "title": "...", "cached": false }]
+}
+```
+
+**Up Next**
+```json
+[
+  { "id": "...", "title": "...", "reason": "behavior" },
+  { "id": "...", "title": "...", "reason": "content" }
+]
+```
+
+### How It Works
+
+```
+Client → FastAPI → iTunes (metadata) + yt-dlp (audio) → Recommendation Engine → JSON
+```
+
+- **Metadata**: iTunes Search API (`/search`, `/lookup`, RSS feed for charts)
+- **Audio**: yt-dlp resolves a YouTube search query to a direct audio URL; optionally downloads and caches as `.m4a`
+- **Recommendations**: two-layer engine
+  - *Behavior-based*: transition tally (which song played after which), with weekly exponential decay
+  - *Content-based*: cosine similarity on artist, genre, tempo, and energy feature vectors
+- **Cache**: up to 600 MB of `.m4a` files in `song_cache/`; auto-cleared when limit is exceeded
+- **Concurrency**: `threading.Lock` on tally and catalog writes; atomic file writes via `os.replace()`
+
+### Tech Stack
+
+| Layer | Tool |
+|---|---|
+| Runtime | Python 3.12+ |
+| Framework | FastAPI + uvicorn |
+| Metadata | iTunes Search API |
+| Audio | yt-dlp |
+| HTTP client | requests |
+| Recommendation | Custom cosine similarity + tally engine |
+| Concurrency | threading.Lock + atomic file writes |
 
 ---
 
 ## Project Structure
 
 ```
-src/
-  index.js              # Express app entry point
 Jio Saavn/
   routes/
-    jiosaavn.js         # Route handlers
+    jiosaavn.js         # Express route handlers
   scrapers/
     jiosaavn.js         # JioSaavn API scraper
   utils/
     cache.js            # In-memory cache instances
     decrypt.js          # DES stream URL decryption
     normalize.js        # Response normalizers
+
+YouTube Music/
+  app.py                # FastAPI entry point
+  requirements.txt      # Python dependencies
+  recommendation/
+    __init__.py
+    behavior.py         # Transition tally + decay
+    content.py          # Cosine similarity engine
+    engine.py           # Combined recommendation logic
+    storage.py          # Atomic tally file I/O
+  data/
+    songs.json          # Song catalog (auto-populated)
+    tally_counter.json  # Transition tally (auto-populated)
+  tests/
+    test_recommendation.py
+
+src/
+  index.js              # JioSaavn Express app entry point
+
 public/
-  index.html            # Built-in browser UI
+  index.html            # Built-in browser UI (JioSaavn)
 ```
+
+---
+
+## Rate Limiting (JioSaavn)
+
+120 requests per minute per IP:
+
+```json
+{ "error": "rate_limited", "message": "Too many requests. Try again in a minute." }
+```
+
+---
+
+## Environment Variables
+
+### JioSaavn (Node.js)
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `3000` | Server port |
+
+### YouTube Music (Python)
+
+| Variable | Default | Description |
+|---|---|---|
+| `BITSONGS_SONGS_PATH` | `data/songs.json` | Path to song catalog file |
+| `BITSONGS_TALLY_PATH` | `data/tally_counter.json` | Path to tally counter file |
 
 ---
 

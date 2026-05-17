@@ -44,5 +44,11 @@ coverage/
 *credentials*.json
 *adminsdk*.json
 
-# Player script artifacts (downloaded YouTube player debug scripts)
-*player-script*.js
+# Python bytecode / virtual envs (YouTube Music service)
+YouTube Music/__pycache__/
+YouTube Music/recommendation/__pycache__/
+YouTube Music/tests/__pycache__/
+YouTube Music/.pytest_cache/
+YouTube Music/venv/
+YouTube Music/.venv/
+YouTube Music/song_cache/

@@ -13,3 +13,14 @@ coverage
 .nyc_output
 
 # Developer/admin test tools; not needed in the image
+
+# Python service artifacts
+YouTube Music/song_cache/
+YouTube Music/__pycache__/
+YouTube Music/recommendation/__pycache__/
+YouTube Music/tests/__pycache__/
+YouTube Music/.pytest_cache/
+YouTube Music/.env
+YouTube Music/.env.*
+YouTube Music/venv/
+YouTube Music/.venv/

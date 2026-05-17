@@ -1,0 +1,47 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Environment / secrets — never commit these
+.env
+.env.*
+*.pem
+*.key
+*credentials*.json
+*adminsdk*.json
+*secret*.json
+
+# Audio cache generated at runtime — can be large and is fully reproducible
+song_cache/
+
+# pytest / coverage artefacts
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+.nyc_output/
+
+# OS / IDE noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/settings.json
+
+# Temp / backup files
+*.log
+*.tmp
+*.pid
+*.bak
+*.orig
+*.swp
+*_old.*
+*_copy.*
