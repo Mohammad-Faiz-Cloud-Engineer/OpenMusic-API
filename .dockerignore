@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+*.md
+LICENSE
+.env
+.env.*
+.cache
+dist
+build
+coverage
+.nyc_output
+
+# Developer/admin test tools; not needed in the image
+tester.html
+Admin-Test.html

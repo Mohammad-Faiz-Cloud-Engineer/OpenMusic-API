@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenMusic API Tester</title>
+<style>
+:root {
+  --bg: #0d0d12;
+  --surface: #16161f;
+  --surface2: #1e1e2a;
+  --surface3: #2a2a3a;
+  --border: #2e2e3e;
+  --text: #e4e4ee;
+  --text2: #8888a0;
+  --accent: #7c5cfc;
+  --accent2: #5b3dc7;
+  --green: #34d399;
+  --red: #f87171;
+  --yellow: #fbbf24;
+  --radius: 8px;
+  --mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+
+/* ── Header ── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  position: sticky; top: 0; z-index: 100;
+}
+.header h1 { font-size: 18px; display: flex; align-items: center; gap: 10px; }
+.header h1 span { color: var(--accent); }
+.header .sub { color: var(--text2); font-size: 12px; margin-top: 2px; }
+.api-url-row {
+  display: flex; gap: 8px; margin-top: 10px; align-items: center;
+}
+.api-url-row input {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--mono);
+  outline: none;
+}
+.api-url-row input:focus { border-color: var(--accent); }
+
+/* ── Layout ── */
+.layout {
+  display: flex;
+  min-height: calc(100vh - 100px);
+}
+.sidebar {
+  width: 220px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 16px 0;
+  flex-shrink: 0;
+}
+.sidebar-section { margin-bottom: 8px; }
+.sidebar-label {
+  padding: 4px 16px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text2);
+  margin-bottom: 4px;
+}
+.source-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text2);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+.source-btn:hover { color: var(--text); background: var(--surface2); }
+.source-btn.active {
+  color: var(--accent);
+  background: rgba(124, 92, 252, 0.08);
+}
+.source-btn.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+.endpoint-btn {
+  display: block;
+  width: 100%;
+  padding: 6px 16px 6px 24px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text2);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--mono);
+}
+.endpoint-btn:hover { color: var(--text); background: var(--surface2); }
+.endpoint-btn.active {
+  color: var(--accent);
+  background: rgba(124, 92, 252, 0.08);
+}
+.endpoint-btn .badge {
+  display: inline-block;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-right: 6px;
+  font-family: sans-serif;
+  font-weight: 600;
+}
+.badge-get { background: rgba(52, 211, 153, 0.15); color: var(--green); }
+
+/* ── Main ── */
+.main {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.endpoint-title {
+  font-size: 22px;
+  font-weight: 700;
+}
+.endpoint-path {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+.endpoint-desc {
+  font-size: 13px;
+  color: var(--text2);
+  margin-top: 4px;
+}
+
+/* ── Params ── */
+.params-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.params-card h3 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text2);
+  margin-bottom: 12px;
+}
+.param-row {
+  display: flex; gap: 8px; align-items: center;
+  margin-bottom: 8px;
+}
+.param-row:last-child { margin-bottom: 0; }
+.param-row label {
+  font-size: 12px;
+  color: var(--text2);
+  width: 60px;
+  flex-shrink: 0;
+  font-family: var(--mono);
+}
+.param-row input, .param-row select {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  font-family: var(--mono);
+}
+.param-row input:focus, .param-row select:focus { border-color: var(--accent); }
+.param-row select { cursor: pointer; }
+.param-row select option { background: var(--surface); }
+
+/* ── Buttons ── */
+.btn-row {
+  display: flex; gap: 8px; margin-top: 12px;
+}
+.btn {
+  padding: 8px 20px;
+  border-radius: var(--radius);
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--accent2); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary {
+  background: var(--surface3);
+  color: var(--text);
+}
+.btn-secondary:hover { background: var(--border); }
+
+/* ── Response ── */
+.response-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: none;
+}
+.response-card.show { display: block; }
+.response-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-family: var(--mono);
+}
+.response-header .status { font-weight: 700; }
+.response-header .status.ok { color: var(--green); }
+.response-header .status.err { color: var(--red); }
+.response-header .status.warn { color: var(--yellow); }
+.response-header .meta { color: var(--text2); }
+.response-header .meta span { margin-right: 16px; }
+.response-body {
+  padding: 16px;
+  overflow-x: auto;
+  max-height: 500px;
+  overflow-y: auto;
+}
+.response-body pre {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.response-body .empty-state {
+  text-align: center;
+  padding: 32px;
+  color: var(--text2);
+  font-size: 13px;
+}
+
+/* ── Audio Player ── */
+.audio-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: none;
+}
+.audio-card.show { display: block; }
+.audio-card h3 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text2);
+  margin-bottom: 10px;
+}
+.audio-card audio {
+  width: 100%;
+  height: 40px;
+}
+.audio-card audio::-webkit-media-controls-panel {
+  background: var(--surface2);
+}
+
+/* ── Toast ── */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  animation: slideIn 0.2s ease;
+  max-width: 400px;
+}
+.toast.error { background: rgba(248, 113, 113, 0.15); color: var(--red); border: 1px solid rgba(248, 113, 113, 0.3); }
+.toast.success { background: rgba(52, 211, 153, 0.15); color: var(--green); border: 1px solid rgba(52, 211, 153, 0.3); }
+@keyframes slideIn {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* ── Loading ── */
+.loading-dots::after {
+  content: '';
+  animation: dots 1.2s steps(3, end) infinite;
+}
+@keyframes dots {
+  0% { content: ''; }
+  33% { content: '.'; }
+  66% { content: '..'; }
+  100% { content: '...'; }
+}
+
+@media (max-width: 768px) {
+  .layout { flex-direction: column; }
+  .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); padding: 8px 0; }
+  .sidebar-section { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 12px; }
+  .sidebar-label { display: none; }
+  .source-btn, .endpoint-btn { width: auto; padding: 4px 10px; border-radius: var(--radius); font-size: 11px; }
+  .source-btn.active::before { display: none; }
+  .source-btn.active { background: rgba(124, 92, 252, 0.15); }
+  .endpoint-btn.active { background: rgba(124, 92, 252, 0.15); }
+  .main { padding: 12px; }
+}
+
+/* ── Raw JSON toggle ── */
+.response-tabs {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.response-tab {
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text2);
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+.response-tab:hover { color: var(--text); }
+.response-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.response-pane { display: none; }
+.response-pane.active { display: block; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>&#9670;</span> OpenMusic API Tester</h1>
+  <div class="sub">Test all endpoints against the unified music API</div>
+  <div class="api-url-row">
+    <input type="text" id="apiBase" value="https://LocalFind-OpenMusic-API.hf.space" spellcheck="false">
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Source</div>
+      <button class="source-btn active" data-source="jiosaavn">JioSaavn</button>
+      <button class="source-btn" data-source="ytmusic">YouTube Music</button>
+    </div>
+    <div class="sidebar-section" id="endpointList">
+      <div class="sidebar-label">Endpoints</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div>
+      <div class="endpoint-title" id="epTitle">Search</div>
+      <div class="endpoint-path" id="epPath">/jiosaavn/search?q=...</div>
+      <div class="endpoint-desc" id="epDesc">Search for songs, albums, and artists</div>
+    </div>
+
+    <div class="params-card">
+      <h3>Parameters</h3>
+      <div id="paramInputs"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="sendBtn">Send Request</button>
+        <button class="btn btn-secondary" id="clearBtn">Clear</button>
+      </div>
+    </div>
+
+    <div class="response-card" id="responseCard">
+      <div class="response-header">
+        <span class="status" id="respStatus">-</span>
+        <span class="meta">
+          <span id="respTime">-</span>
+          <span id="respSize">-</span>
+        </span>
+      </div>
+      <div class="response-tabs" id="respTabs">
+        <button class="response-tab active" data-pane="formatted">Formatted</button>
+        <button class="response-tab" data-pane="raw">Raw</button>
+        <button class="response-tab" data-pane="headers">Headers</button>
+      </div>
+      <div class="response-body">
+        <div class="response-pane active" id="paneFormatted"><pre id="respFormatted"><span class="empty-state">Send a request to see the response here</span></pre></div>
+        <div class="response-pane" id="paneRaw"><pre id="respRaw"></pre></div>
+        <div class="response-pane" id="paneHeaders"><pre id="respHeaders"></pre></div>
+      </div>
+    </div>
+
+    <div class="audio-card" id="audioCard">
+      <h3>&#9654; Audio Stream</h3>
+      <audio id="audioPlayer" controls preload="none"></audio>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+const BASE_INPUT = document.getElementById('apiBase');
+const SOURCE_BTNS = document.querySelectorAll('.source-btn');
+const ENDPOINT_LIST = document.getElementById('endpointList');
+const EP_TITLE = document.getElementById('epTitle');
+const EP_PATH = document.getElementById('epPath');
+const EP_DESC = document.getElementById('epDesc');
+const PARAM_INPUTS = document.getElementById('paramInputs');
+const SEND_BTN = document.getElementById('sendBtn');
+const CLEAR_BTN = document.getElementById('clearBtn');
+const RESP_CARD = document.getElementById('responseCard');
+const RESP_STATUS = document.getElementById('respStatus');
+const RESP_TIME = document.getElementById('respTime');
+const RESP_SIZE = document.getElementById('respSize');
+const RESP_FORMATTED = document.getElementById('respFormatted');
+const RESP_RAW = document.getElementById('respRaw');
+const RESP_HEADERS = document.getElementById('respHeaders');
+const AUDIO_CARD = document.getElementById('audioCard');
+const AUDIO_PLAYER = document.getElementById('audioPlayer');
+
+let currentSource = 'jiosaavn';
+let currentEndpoint = null;
+
+const ENDPOINTS = {
+  jiosaavn: [
+    {
+      id: 'search',
+      label: 'Search',
+      path: '/jiosaavn/search?q={q}',
+      desc: 'Search for songs, albums, and artists on JioSaavn',
+      params: [
+        { key: 'q', label: 'q', type: 'text', placeholder: 'e.g. tere naal', required: true }
+      ],
+      hasStream: false
+    },
+    {
+      id: 'suggestions',
+      label: 'Suggestions',
+      path: '/jiosaavn/suggestions?q={q}',
+      desc: 'Autocomplete search suggestions',
+      params: [
+        { key: 'q', label: 'q', type: 'text', placeholder: 'e.g. tere', required: true }
+      ],
+      hasStream: false
+    },
+    {
+      id: 'album',
+      label: 'Album',
+      path: '/jiosaavn/album/{id}',
+      desc: 'Get album details and track list',
+      params: [
+        { key: 'id', label: 'id', type: 'text', placeholder: 'e.g. 70160165', required: true }
+      ],
+      hasStream: false
+    },
+    {
+      id: 'playlist',
+      label: 'Playlist',
+      path: '/jiosaavn/playlist/{id}',
+      desc: 'Get playlist details and track list',
+      params: [
+        { key: 'id', label: 'id', type: 'text', placeholder: 'e.g. 1134543272', required: true }
+      ],
+      hasStream: false
+    },
+    {
+      id: 'charts',
+      label: 'Charts',
+      path: '/jiosaavn/charts',
+      desc: 'Get trending charts',
+      params: [],
+      hasStream: false
+    },
+    {
+      id: 'track',
+      label: 'Track URL',
+      path: '/jiosaavn/track/{id}',
+      desc: 'Get playable stream URL for a track (returns JSON with stream_url)',
+      params: [
+        { key: 'id', label: 'id', type: 'text', placeholder: 'e.g. 0gKfBAgi', required: true }
+      ],
+      hasStream: false
+    },
+    {
+      id: 'play',
+      label: 'Play Stream',
+      path: '/jiosaavn/track/{id}/play',
+      desc: 'Proxy audio stream through the server (use the audio player below)',
+      params: [
+        { key: 'id', label: 'id', type: 'text', placeholder: 'e.g. 0gKfBAgi', required: true }
+      ],
+      hasStream: true
+    }
+  ],
+  ytmusic: [
+    {
+      id: 'search',
+      label: 'Search',
+      path: '/ytmusic/search?q={q}',
+      desc: 'Search for songs on YouTube Music',
+      params: [
+        { key: 'q', label: 'q', type: 'text', placeholder: 'e.g. tere naal', required: true }
+      ],
+      hasStream: false
+    },
+    {
+      id: 'suggestions',
+      label: 'Suggestions',
+      path: '/ytmusic/suggestions?q={q}',
+      desc: 'Autocomplete search suggestions',
+      params: [
+        { key: 'q', label: 'q', type: 'text', placeholder: 'e.g. tere', required: true }
+      ],
+      hasStream: false
+    },
+    {
+      id: 'album',
+      label: 'Album',
+      path: '/ytmusic/album/{id}',
+      desc: 'Get album details and track list',
+      params: [
+        { key: 'id', label: 'id', type: 'text', placeholder: 'e.g. MPREb_DHWbS7Con8q', required: true }
+      ],
+      hasStream: false
+    },
+    {
+      id: 'playlist',
+      label: 'Playlist',
+      path: '/ytmusic/playlist/{id}',
+      desc: 'Get playlist details and track list',
+      params: [
+        { key: 'id', label: 'id', type: 'text', placeholder: 'e.g. PL...', required: true }
+      ],
+      hasStream: false
+    },
+    {
+      id: 'charts',
+      label: 'Charts',
+      path: '/ytmusic/charts',
+      desc: 'Get trending music charts',
+      params: [],
+      hasStream: false
+    },
+    {
+      id: 'track',
+      label: 'Track',
+      path: '/ytmusic/track/{id}',
+      desc: 'Get track metadata (no stream URL; opens YouTube)',
+      params: [
+        { key: 'id', label: 'id', type: 'text', placeholder: 'e.g. dQw4w9WgXcQ', required: true }
+      ],
+      hasStream: false
+    }
+  ]
+};
+
+function getBase() {
+  return BASE_INPUT.value.trim().replace(/\/+$/, '');
+}
+
+function resolveApiBase() {
+  const raw = getBase();
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    return u;
+  } catch {
+    return null;
+  }
+}
+
+/** Allow only http(s) URLs for audio element src (blocks javascript: etc.). */
+function safeHttpUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    return u.href;
+  } catch {
+    return null;
+  }
+}
+
+function buildEndpoints() {
+  ENDPOINT_LIST.innerHTML = '<div class="sidebar-label">Endpoints</div>';
+  const eps = ENDPOINTS[currentSource];
+  eps.forEach((ep, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'endpoint-btn' + (i === 0 ? ' active' : '');
+    btn.dataset.endpoint = ep.id;
+    btn.innerHTML = `<span class="badge badge-get">GET</span>${ep.label}`;
+    btn.addEventListener('click', () => selectEndpoint(ep.id));
+    ENDPOINT_LIST.appendChild(btn);
+  });
+  selectEndpoint(eps[0].id);
+}
+
+function selectEndpoint(id) {
+  currentEndpoint = id;
+  document.querySelectorAll('.endpoint-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.endpoint-btn[data-endpoint="${id}"]`)?.classList.add('active');
+  renderEndpoint();
+}
+
+function renderEndpoint() {
+  const ep = ENDPOINTS[currentSource].find(e => e.id === currentEndpoint);
+  if (!ep) return;
+
+  EP_TITLE.textContent = ep.label;
+  EP_PATH.textContent = ep.path;
+  EP_DESC.textContent = ep.desc;
+
+  PARAM_INPUTS.innerHTML = '';
+  if (ep.params.length === 0) {
+    PARAM_INPUTS.innerHTML = '<div style="color:var(--text2);font-size:12px;">No parameters required</div>';
+  } else {
+    ep.params.forEach(p => {
+      const row = document.createElement('div');
+      row.className = 'param-row';
+      row.innerHTML = `
+        <label>${p.label}</label>
+        <input type="${p.type}" id="param-${p.key}" placeholder="${p.placeholder}" ${p.required ? 'required' : ''} spellcheck="false">
+      `;
+      PARAM_INPUTS.appendChild(row);
+    });
+  }
+
+  AUDIO_CARD.classList.remove('show');
+  AUDIO_PLAYER.pause();
+  AUDIO_PLAYER.removeAttribute('src');
+  RESP_CARD.classList.remove('show');
+
+  document.getElementById('sendBtn').disabled = false;
+}
+
+function getParamValues() {
+  const ep = ENDPOINTS[currentSource].find(e => e.id === currentEndpoint);
+  const vals = {};
+  ep.params.forEach(p => {
+    const el = document.getElementById(`param-${p.key}`);
+    vals[p.key] = el ? el.value.trim() : '';
+  });
+  return vals;
+}
+
+function buildUrl() {
+  const ep = ENDPOINTS[currentSource].find(e => e.id === currentEndpoint);
+  if (!ep) return null;
+  const apiBase = resolveApiBase();
+  if (!apiBase) return null;
+  const params = getParamValues();
+  let path = ep.path;
+
+  for (const [k, v] of Object.entries(params)) {
+    path = path.replace(`{${k}}`, encodeURIComponent(v));
+  }
+
+  try {
+    return new URL(path, apiBase).href;
+  } catch {
+    return null;
+  }
+}
+
+function validateParams() {
+  const ep = ENDPOINTS[currentSource].find(e => e.id === currentEndpoint);
+  for (const p of ep.params) {
+    if (p.required) {
+      const val = document.getElementById(`param-${p.key}`)?.value.trim();
+      if (!val) {
+        showToast(`"${p.key}" is required`, 'error');
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+async function sendRequest() {
+  if (!validateParams()) return;
+
+  const ep = ENDPOINTS[currentSource].find(e => e.id === currentEndpoint);
+  const url = buildUrl();
+  if (!url) return;
+
+  SEND_BTN.disabled = true;
+  SEND_BTN.textContent = 'Sending...';
+  RESP_CARD.classList.remove('show');
+  AUDIO_CARD.classList.remove('show');
+  AUDIO_PLAYER.pause();
+  AUDIO_PLAYER.removeAttribute('src');
+
+  const isStreamProxy = ep.hasStream;
+
+  const start = performance.now();
+  try {
+    if (isStreamProxy) {
+      const audioSrc = safeHttpUrl(url);
+      if (!audioSrc) {
+        showToast('Invalid request URL: use an http(s) API base', 'error');
+        return;
+      }
+      AUDIO_PLAYER.setAttribute('src', audioSrc);
+      AUDIO_CARD.classList.add('show');
+      RESP_CARD.classList.remove('show');
+
+      const dur = ((performance.now() - start) / 1000).toFixed(2);
+      RESP_STATUS.textContent = 'Stream loaded';
+      RESP_STATUS.className = 'status ok';
+      RESP_TIME.textContent = `${dur}s`;
+      RESP_SIZE.textContent = '-';
+      showToast('Stream ready. Press play.', 'success');
+    } else {
+      const resp = await fetch(url);
+      const dur = ((performance.now() - start) / 1000).toFixed(2);
+
+      const statusText = `${resp.status} ${resp.statusText}`;
+      RESP_STATUS.textContent = statusText;
+      RESP_STATUS.className = 'status ' + (resp.ok ? 'ok' : resp.status >= 400 ? 'err' : 'warn');
+      RESP_TIME.textContent = `${dur}s`;
+
+      const data = await resp.json();
+      const raw = JSON.stringify(data, null, 2);
+      const size = new Blob([raw]).size;
+      RESP_SIZE.textContent = size > 1024 ? `${(size / 1024).toFixed(1)} KB` : `${size} B`;
+
+      RESP_FORMATTED.textContent = raw;
+      RESP_RAW.textContent = raw;
+
+      const headersText = {};
+      for (const [k, v] of resp.headers.entries()) {
+        headersText[k] = v;
+      }
+      RESP_HEADERS.textContent = JSON.stringify(headersText, null, 2);
+
+      RESP_CARD.classList.add('show');
+      switchPane('formatted');
+
+      if (ep.id === 'track' && currentSource === 'jiosaavn' && data.stream_url) {
+        const streamSrc = safeHttpUrl(data.stream_url);
+        if (streamSrc) {
+          AUDIO_PLAYER.setAttribute('src', streamSrc);
+          AUDIO_CARD.classList.add('show');
+        } else {
+          showToast('Stream URL rejected (must be http or https)', 'error');
+        }
+      }
+    }
+  } catch (err) {
+    const dur = ((performance.now() - start) / 1000).toFixed(2);
+    RESP_STATUS.textContent = 'Network Error';
+    RESP_STATUS.className = 'status err';
+    RESP_TIME.textContent = `${dur}s`;
+    RESP_SIZE.textContent = '-';
+    RESP_FORMATTED.textContent = `Error: ${err.message}\n\nMake sure the API base URL is correct and the server is running.`;
+    RESP_RAW.textContent = err.stack || err.message;
+    RESP_HEADERS.textContent = '-';
+    RESP_CARD.classList.add('show');
+    switchPane('formatted');
+    showToast(`Request failed: ${err.message}`, 'error');
+  } finally {
+    SEND_BTN.disabled = false;
+    SEND_BTN.textContent = 'Send Request';
+  }
+}
+
+function switchPane(id) {
+  document.querySelectorAll('.response-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.response-tab[data-pane="${id}"]`)?.classList.add('active');
+  document.querySelectorAll('.response-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById(`pane${id.charAt(0).toUpperCase() + id.slice(1)}`)?.classList.add('active');
+}
+
+function clearAll() {
+  const ep = ENDPOINTS[currentSource].find(e => e.id === currentEndpoint);
+  if (ep) {
+    ep.params.forEach(p => {
+      const el = document.getElementById(`param-${p.key}`);
+      if (el) el.value = '';
+    });
+  }
+  RESP_CARD.classList.remove('show');
+  AUDIO_CARD.classList.remove('show');
+  AUDIO_PLAYER.pause();
+  AUDIO_PLAYER.removeAttribute('src');
+}
+
+function showToast(msg, type) {
+  const container = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  container.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+// ── Event Listeners ──
+SOURCE_BTNS.forEach(btn => {
+  btn.addEventListener('click', () => {
+    SOURCE_BTNS.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentSource = btn.dataset.source;
+    buildEndpoints();
+  });
+});
+
+SEND_BTN.addEventListener('click', sendRequest);
+
+CLEAR_BTN.addEventListener('click', clearAll);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+    sendRequest();
+  }
+});
+
+document.querySelectorAll('.response-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    switchPane(tab.dataset.pane);
+  });
+});
+
+// ── Init ──
+buildEndpoints();
+</script>
+</body>
+</html>
