@@ -60,7 +60,74 @@ UP_NEXT_MAX_LIMIT = 50
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+_YTDLP_COOKIE_PATH = CACHE_DIR / ".youtube_cookies.txt"
+
+
+def _normalize_cookie_blob(raw: str) -> str:
+    """HF secrets / .env may use literal \\n instead of newlines."""
+    text = (raw or "").strip()
+    if not text:
+        return ""
+    if "\\n" in text and "\n" not in text.split("# Netscape", 1)[0]:
+        text = text.replace("\\n", "\n")
+    return text
+
+
+def has_youtube_cookies() -> bool:
+    if os.environ.get("YTMUSIC_YOUTUBE_COOKIES_FILE", "").strip():
+        path = Path(os.environ["YTMUSIC_YOUTUBE_COOKIES_FILE"].strip())
+        return path.is_file() and path.stat().st_size > 0
+    return bool(_normalize_cookie_blob(os.environ.get("YTMUSIC_YOUTUBE_COOKIES", "")))
+
+
+def get_ytdlp_cookiefile() -> str | None:
+    """
+    Resolve yt-dlp cookie file from env (Hugging Face secret or .env).
+
+    Set YTMUSIC_YOUTUBE_COOKIES to the full Netscape cookies.txt export for
+    youtube.com, or YTMUSIC_YOUTUBE_COOKIES_FILE to a path inside the container.
+    """
+    file_env = os.environ.get("YTMUSIC_YOUTUBE_COOKIES_FILE", "").strip()
+    if file_env:
+        path = Path(file_env)
+        if path.is_file():
+            return str(path.resolve())
+
+    blob = _normalize_cookie_blob(os.environ.get("YTMUSIC_YOUTUBE_COOKIES", ""))
+    if not blob:
+        return None
+    if "# Netscape HTTP Cookie File" not in blob and ".youtube.com" not in blob:
+        logger.warning(
+            "YTMUSIC_YOUTUBE_COOKIES is set but does not look like Netscape cookies.txt"
+        )
+    _YTDLP_COOKIE_PATH.write_text(blob, encoding="utf-8")
+    try:
+        os.chmod(_YTDLP_COOKIE_PATH, 0o600)
+    except OSError:
+        pass
+    return str(_YTDLP_COOKIE_PATH)
+
+
+def ytdlp_play_allowed() -> bool:
+    if has_youtube_cookies():
+        return True
+    if os.environ.get("YTMUSIC_SKIP_YTDLP", "").lower() in ("1", "true", "yes"):
+        return False
+    return os.environ.get("YTMUSIC_ENABLE_YTDLP", "").lower() in ("1", "true", "yes")
+
+
+def apply_ytdlp_cookies(ydl_opts: dict) -> dict:
+    cookiefile = get_ytdlp_cookiefile()
+    if cookiefile:
+        ydl_opts = dict(ydl_opts)
+        ydl_opts["cookiefile"] = cookiefile
+    return ydl_opts
+
+
 executor = ThreadPoolExecutor(max_workers=2)
+
+if has_youtube_cookies():
+    logger.info("YouTube cookies loaded from env — yt-dlp full playback enabled")
 
 _BLOCKED_PROXY_HOSTS = frozenset({
     "localhost",
@@ -368,13 +435,13 @@ def download_task(song_id, artist, title):
     if filepath.exists():
         return
     query = f"{artist} - {title} audio"
-    ydl_opts = {
+    ydl_opts = apply_ytdlp_cookies({
         "format": "bestaudio[ext=m4a]/best",
         "outtmpl": str(filepath),
         "quiet": True,
         "noplaylist": True,
-        "extractor_args": {"youtube": {"client": ["android", "ios"]}},
-    }
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+    })
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([f"ytsearch1:{query}"])
@@ -462,10 +529,10 @@ def _extract_youtube_audio(artist: str, title: str):
             continue
         seen_queries.add(q)
         for clients in client_sets:
-            opts = {
+            opts = apply_ytdlp_cookies({
                 **ydl_base,
                 "extractor_args": {"youtube": {"player_client": clients}},
-            }
+            })
             try:
                 with yt_dlp.YoutubeDL(opts) as ydl:
                     info = ydl.extract_info(f"ytsearch1:{q}", download=False)
@@ -485,6 +552,15 @@ def render_play_response(request: Request, song_id: str, artist: str, title: str
     if filepath.exists():
         base_url = public_base_url(request)
         return JSONResponse({"source": "local", "url": f"{base_url}/api/mobile/stream_cache/{filename}"})
+
+    if not ytdlp_play_allowed():
+        return JSONResponse(
+            {
+                "error": "play_disabled",
+                "message": "yt-dlp is off on this host. Add YTMUSIC_YOUTUBE_COOKIES (HF secret) for full YouTube playback.",
+            },
+            status_code=503,
+        )
 
     try:
         video, http_headers = _extract_youtube_audio(artist, title)

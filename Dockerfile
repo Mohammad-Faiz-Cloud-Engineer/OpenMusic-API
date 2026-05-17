@@ -77,7 +77,9 @@ EXPOSE 7860
 ENV PORT=7860 \
     NODE_ENV=production \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    YTMUSIC_ENABLE_YTDLP=false \
+    YTMUSIC_SKIP_YTDLP=true
 
 # ── Health check ──────────────────────────────────────────────────────────
 # Probes the Node/Express service on the public port.

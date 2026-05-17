@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const axios = require('axios');
 const { trim } = require('../../Jio Saavn/utils/normalize');
-const { searchCache, metadataCache } = require('../../Jio Saavn/utils/cache');
+const { searchCache, streamCache, metadataCache } = require('../../Jio Saavn/utils/cache');
 
 const router = Router();
 
@@ -10,12 +10,35 @@ const CHART_PLAYLIST_ID = '__chart_top_songs__';
 const SOURCE = 'ytmusic';
 const PLAY_TIMEOUT_MS = 120_000;
 
-/** Public Piped API mirrors (fallback when yt-dlp fails on HF datacenter IPs). */
+/** Piped API mirrors — try several; public instances go down often. */
 const PIPED_INSTANCES = [
-  'https://pipedapi.kavin.rocks',
+  'https://pipedapi.in.projectsegfau.lt',
+  'https://pipedapi.leptons.xyz',
+  'https://api.piped.private.coffee',
   'https://pipedapi.adminforge.de',
   'https://api.piped.projectsegfau.lt',
+  'https://pipedapi.kavin.rocks',
 ];
+
+/** Invidious API mirrors (often work when Piped/yt-dlp fail on cloud IPs). */
+const INVIDIOUS_INSTANCES = [
+  'https://inv.nadeko.net',
+  'https://yewtu.be',
+  'https://invidious.nerdvpn.de',
+  'https://inv.tux.pizza',
+  'https://vid.puffyan.us',
+];
+
+function hasYoutubeCookies() {
+  return Boolean(
+    process.env.YTMUSIC_YOUTUBE_COOKIES?.trim()
+    || process.env.YTMUSIC_YOUTUBE_COOKIES_FILE?.trim(),
+  );
+}
+
+/** Full yt-dlp when cookies are set (HF secret), or when explicitly enabled locally. */
+const YTDLP_WITH_COOKIES = hasYoutubeCookies();
+const YTDLP_PLAY_ENABLED = process.env.YTMUSIC_ENABLE_YTDLP === 'true' || YTDLP_WITH_COOKIES;
 
 function toUiTrack(song) {
   if (!song) return null;
@@ -83,16 +106,158 @@ function proxyHeaders(req) {
   };
 }
 
-function buildProxyUrl(directUrl, headers, req) {
-  const params = new URLSearchParams({
-    url: directUrl,
-    headers: JSON.stringify(headers || {}),
-  });
-  return `${publicBase(req)}/stream_proxy?${params}`;
+function playStreamUrl(req, id, artist, title) {
+  const params = new URLSearchParams({ id, artist, title });
+  return `${publicBase(req)}/play/stream?${params}`;
 }
 
 function playErrorMessage(data, status) {
   return data?.message || data?.error || `Playback failed (HTTP ${status})`;
+}
+
+/** Stream audio from an external CDN (same pattern as JioSaavn /track/:id/play). */
+async function pipeExternalStream(streamUrl, extraHeaders, req, res) {
+  const range = req.headers.range;
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    Accept: '*/*',
+    'Accept-Language': 'en-us,en;q=0.5',
+    Referer: 'https://www.youtube.com/',
+    ...extraHeaders,
+  };
+  if (range) headers.Range = range;
+
+  const upstream = await axios({
+    method: 'get',
+    url: streamUrl,
+    responseType: 'stream',
+    headers,
+    timeout: 60_000,
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity,
+    validateStatus: () => true,
+  });
+
+  if (upstream.status >= 400) {
+    if (!res.headersSent) {
+      res.status(upstream.status).json({
+        error: 'stream_failed',
+        source: SOURCE,
+        message: `Audio CDN returned HTTP ${upstream.status}`,
+      });
+    }
+    upstream.data.destroy();
+    return;
+  }
+
+  const skip = new Set(['transfer-encoding', 'connection', 'content-encoding']);
+  res.status(upstream.status === 206 ? 206 : upstream.status);
+  for (const [key, value] of Object.entries(upstream.headers)) {
+    if (!skip.has(key.toLowerCase())) res.setHeader(key, value);
+  }
+  if (!res.getHeader('content-type')) res.setHeader('Content-Type', 'audio/mp4');
+  if (!res.getHeader('accept-ranges')) res.setHeader('Accept-Ranges', 'bytes');
+
+  upstream.data.on('error', (err) => {
+    console.error('[ytmusic] CDN stream error:', err.message);
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'stream_failed', source: SOURCE, message: err.message });
+    } else {
+      res.end();
+    }
+  });
+  req.on('close', () => upstream.data.destroy());
+  upstream.data.pipe(res);
+}
+
+async function pipePythonCache(filename, req, res) {
+  const range = req.headers.range;
+  const upstream = await axios.get(
+    `${YTMUSIC_BASE}/api/mobile/stream_cache/${encodeURIComponent(filename)}`,
+    {
+      responseType: 'stream',
+      timeout: 60_000,
+      headers: range ? { Range: range } : {},
+      validateStatus: () => true,
+    },
+  );
+  if (upstream.status >= 400) {
+    if (!res.headersSent) {
+      res.status(upstream.status).json({ error: 'stream_failed', source: SOURCE, message: 'Cached file not found' });
+    }
+    upstream.data.destroy();
+    return;
+  }
+  const skip = new Set(['transfer-encoding', 'connection', 'content-encoding']);
+  res.status(upstream.status === 206 ? 206 : upstream.status);
+  for (const [key, value] of Object.entries(upstream.headers)) {
+    if (!skip.has(key.toLowerCase())) res.setHeader(key, value);
+  }
+  if (!res.getHeader('content-type')) res.setHeader('Content-Type', 'audio/mp4');
+  upstream.data.pipe(res);
+}
+
+function youtubeSearchUrl(title, artist) {
+  const q = [title, artist].filter(Boolean).join(' ').trim();
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+}
+
+async function resolveLocalCache(id) {
+  const filename = `${id}.m4a`;
+  try {
+    const { status } = await axios.get(
+      `${YTMUSIC_BASE}/api/mobile/stream_cache/${encodeURIComponent(filename)}`,
+      { timeout: 8_000, headers: { Range: 'bytes=0-0' }, validateStatus: () => true },
+    );
+    if (status === 200 || status === 206) {
+      return { source: 'local', local_cache: true, cache_filename: filename };
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+async function resolveViaInvidious(title, artist) {
+  const q = [title, artist].filter(Boolean).join(' ').trim();
+  if (!q) return null;
+
+  for (const base of INVIDIOUS_INSTANCES) {
+    try {
+      const { data: results } = await axios.get(`${base}/api/v1/search`, {
+        params: { q, type: 'video', sort_by: 'relevance' },
+        timeout: 18_000,
+        headers: { 'User-Agent': 'OpenMusic-API/1.0' },
+        validateStatus: status => status < 500,
+      });
+      const video = Array.isArray(results)
+        ? results.find(r => r.type === 'video' && r.videoId)
+        : null;
+      if (!video?.videoId) continue;
+
+      const { data: info } = await axios.get(`${base}/api/v1/videos/${video.videoId}`, {
+        timeout: 18_000,
+        params: { local: 'true' },
+        headers: { 'User-Agent': 'OpenMusic-API/1.0' },
+        validateStatus: status => status < 500,
+      });
+      const audio = (info?.adaptiveFormats || [])
+        .filter(f => f.url && (f.type || '').startsWith('audio/'))
+        .sort((a, b) => (parseInt(b.bitrate, 10) || 0) - (parseInt(a.bitrate, 10) || 0))[0];
+      if (!audio?.url) continue;
+
+      console.info('[ytmusic] resolved via invidious (%s) videoId=%s', base, video.videoId);
+      return {
+        source: 'invidious',
+        stream_url: audio.url,
+        headers: { Referer: `${base}/` },
+        local_cache: false,
+      };
+    } catch (err) {
+      console.warn('[ytmusic] invidious resolve failed (%s): %s', base, err.message);
+    }
+  }
+  return null;
 }
 
 async function resolveViaPiped(title, artist) {
@@ -103,22 +268,116 @@ async function resolveViaPiped(title, artist) {
     try {
       const { data: search } = await axios.get(`${base}/search`, {
         params: { q, filter: 'music_songs' },
-        timeout: 20_000,
+        timeout: 18_000,
+        validateStatus: status => status < 500,
       });
       const item = search?.items?.[0];
       const videoId = item?.url?.match(/[?&]v=([^&]+)/)?.[1];
       if (!videoId) continue;
 
-      const { data: streams } = await axios.get(`${base}/streams/${videoId}`, { timeout: 20_000 });
+      const { data: streams } = await axios.get(`${base}/streams/${videoId}`, {
+        timeout: 18_000,
+        validateStatus: status => status < 500,
+      });
       const audio = (streams?.audioStreams || [])
         .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-      if (!audio?.url) continue;
+      const streamUrl = audio?.proxyUrl || audio?.url;
+      if (!streamUrl) continue;
 
-      return { source: 'piped', direct_url: audio.url, headers: {} };
+      console.info('[ytmusic] resolved via piped (%s) videoId=%s', base, videoId);
+      return {
+        source: 'piped',
+        stream_url: streamUrl,
+        headers: { Referer: 'https://piped.video/' },
+        local_cache: false,
+      };
     } catch (err) {
-      console.warn('[ytmusic] piped fallback failed (%s): %s', base, err.message);
+      console.warn('[ytmusic] piped resolve failed (%s): %s', base, err.message);
     }
   }
+  return null;
+}
+
+async function resolveViaItunesPreview(trackId) {
+  try {
+    const data = await itunesLookup({ id: trackId });
+    const item = (data?.results || []).find(r => r.previewUrl && r.wrapperType === 'track')
+      || (data?.results || []).find(r => r.previewUrl);
+    if (!item?.previewUrl) return null;
+
+    console.info('[ytmusic] resolved via iTunes preview for id=%s', trackId);
+    return {
+      source: 'itunes_preview',
+      stream_url: item.previewUrl,
+      headers: { Referer: 'https://music.apple.com/' },
+      local_cache: false,
+      preview_only: true,
+    };
+  } catch (err) {
+    console.warn('[ytmusic] iTunes preview lookup failed: %s', err.message);
+    return null;
+  }
+}
+
+async function resolveViaPython(id, artist, title, req) {
+  const { data, status } = await axios.get(`${YTMUSIC_BASE}/api/mobile/play`, {
+    params: { id, artist, title },
+    headers: proxyHeaders(req),
+    timeout: PLAY_TIMEOUT_MS,
+    validateStatus: () => true,
+  });
+  if (status >= 400 || !data) return null;
+
+  if (data.source === 'local' && data.url) {
+    const filename = `${id}.m4a`;
+    return { source: 'local', stream_url: null, headers: {}, local_cache: true, cache_filename: filename };
+  }
+
+  if (data.direct_url) {
+    return {
+      source: data.source || 'youtube',
+      stream_url: data.direct_url,
+      headers: data.headers || {},
+      local_cache: false,
+    };
+  }
+
+  return null;
+}
+
+async function resolveStreamTarget(id, artist, title, req) {
+  const cached = await resolveLocalCache(id);
+  if (cached) return cached;
+
+  if (YTDLP_WITH_COOKIES) {
+    try {
+      const py = await resolveViaPython(id, artist, title, req);
+      if (py?.stream_url || py?.local_cache) return py;
+    } catch (err) {
+      if (err.code !== 'ECONNREFUSED') throw err;
+      console.warn('[ytmusic] Python play unavailable (cookies configured)');
+    }
+  }
+
+  const invidious = await resolveViaInvidious(title, artist);
+  if (invidious?.stream_url) return invidious;
+
+  const piped = await resolveViaPiped(title, artist);
+  if (piped?.stream_url) return piped;
+
+  const preview = await resolveViaItunesPreview(id);
+  if (preview?.stream_url) return preview;
+
+  if (YTDLP_PLAY_ENABLED && !YTDLP_WITH_COOKIES) {
+    try {
+      const py = await resolveViaPython(id, artist, title, req);
+      if (py?.stream_url || py?.local_cache) return py;
+    } catch (err) {
+      if (err.code !== 'ECONNREFUSED') throw err;
+      console.warn('[ytmusic] Python play unavailable');
+    }
+  }
+
   return null;
 }
 
@@ -325,7 +584,63 @@ router.get('/album/:id', async (req, res) => {
   }
 });
 
-// ── Play (audio resolve via Python / yt-dlp, Piped fallback on HF) ───────
+// ── Play stream (proxy audio — use this URL in <audio src>) ─────────────
+router.get('/play/stream', async (req, res) => {
+  const id = trim(req.query.id);
+  const artist = trim(req.query.artist);
+  const title = trim(req.query.title);
+  if (!id || !artist || !title) {
+    return res.status(400).json({
+      error: 'missing_params',
+      message: 'Query parameters id, artist, and title are required',
+    });
+  }
+
+  const cacheKey = `stream:ytmusic:${id}:${artist}:${title}`.toLowerCase();
+  let target = streamCache.get(cacheKey);
+
+  try {
+    if (!target) {
+      target = await resolveStreamTarget(id, artist, title, req);
+      if (target) streamCache.set(cacheKey, target);
+    }
+
+    if (!target) {
+      return res.status(404).json({
+        error: 'play_failed',
+        source: SOURCE,
+        message: 'Could not resolve audio for this track. YouTube blocks server playback on free cloud hosting — use JioSaavn or open the YouTube link.',
+        youtube_open_url: youtubeSearchUrl(title, artist),
+      });
+    }
+
+    if (target.local_cache && target.cache_filename) {
+      return pipePythonCache(target.cache_filename, req, res);
+    }
+
+    if (!target.stream_url) {
+      return res.status(404).json({
+        error: 'play_failed',
+        source: SOURCE,
+        message: 'No stream URL available for this track',
+        youtube_open_url: youtubeSearchUrl(title, artist),
+      });
+    }
+
+    if (target.preview_only) {
+      res.setHeader('X-Ytmusic-Preview', '1');
+    }
+
+    await pipeExternalStream(target.stream_url, target.headers || {}, req, res);
+  } catch (err) {
+    console.error('[ytmusic] play/stream error:', err.message);
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'stream_failed', source: SOURCE, message: err.message });
+    }
+  }
+});
+
+// ── Play metadata (JSON — url points at /play/stream for browsers) ───────
 router.get('/play', async (req, res) => {
   const id = trim(req.query.id);
   const artist = trim(req.query.artist);
@@ -338,42 +653,22 @@ router.get('/play', async (req, res) => {
   }
 
   try {
-    let data = null;
-    let status = 503;
-
-    try {
-      const upstream = await axios.get(`${YTMUSIC_BASE}/api/mobile/play`, {
-        params: { id, artist, title, previous_song_id: trim(req.query.previous_song_id) || undefined },
-        headers: proxyHeaders(req),
-        timeout: PLAY_TIMEOUT_MS,
-        validateStatus: () => true,
-      });
-      data = upstream.data;
-      status = upstream.status;
-    } catch (err) {
-      if (err.code !== 'ECONNREFUSED') throw err;
-      console.warn('[ytmusic] Python play unavailable, using Piped fallback only');
-      status = 404;
-    }
-
-    if (status < 400 && data?.url) {
-      return res.json(rewritePlayPayload(data, req));
-    }
-
-    const piped = await resolveViaPiped(title, artist);
-    if (piped?.direct_url) {
-      return res.json({
-        source: piped.source,
-        url: buildProxyUrl(piped.direct_url, piped.headers, req),
-        direct_url: piped.direct_url,
-        headers: piped.headers,
+    const target = await resolveStreamTarget(id, artist, title, req);
+    if (!target || (!target.stream_url && !target.local_cache)) {
+      return res.status(404).json({
+        error: 'play_failed',
+        source: SOURCE,
+        message: 'Could not resolve audio for this track',
+        youtube_open_url: youtubeSearchUrl(title, artist),
       });
     }
 
-    return res.status(404).json({
-      error: 'play_failed',
-      source: SOURCE,
-      message: playErrorMessage(data, status),
+    res.json({
+      source: target.source,
+      url: playStreamUrl(req, id, artist, title),
+      stream_url: target.stream_url,
+      headers: target.headers,
+      preview_only: Boolean(target.preview_only),
     });
   } catch (err) {
     const msg = err.code === 'ECONNREFUSED'
@@ -385,23 +680,25 @@ router.get('/play', async (req, res) => {
 });
 
 router.get('/stream_proxy', async (req, res) => {
+  const targetUrl = trim(req.query.url);
+  if (!targetUrl) {
+    return res.status(400).json({ error: 'missing_url', message: 'url query parameter is required' });
+  }
+
+  let extraHeaders = {};
   try {
-    const upstream = await axios.get(`${YTMUSIC_BASE}/api/mobile/stream_proxy`, {
-      params: req.query,
-      responseType: 'stream',
-      timeout: 60_000,
-      headers: { range: req.headers.range || '' },
-      validateStatus: () => true,
-    });
-    res.status(upstream.status);
-    for (const [key, value] of Object.entries(upstream.headers)) {
-      if (key.toLowerCase() === 'transfer-encoding') continue;
-      res.setHeader(key, value);
-    }
-    upstream.data.pipe(res);
+    extraHeaders = JSON.parse(req.query.headers || '{}');
+  } catch {
+    extraHeaders = {};
+  }
+
+  try {
+    await pipeExternalStream(targetUrl, extraHeaders, req, res);
   } catch (err) {
     console.error('[ytmusic] stream_proxy error:', err.message);
-    res.status(502).json({ error: 'stream_failed', source: SOURCE, message: err.message });
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'stream_failed', source: SOURCE, message: err.message });
+    }
   }
 });
 

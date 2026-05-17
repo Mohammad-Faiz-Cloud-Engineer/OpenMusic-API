@@ -686,6 +686,25 @@ function loadPlaylistById(id) {
   loadPlaylist();
 }
 
+function waitForAudioReady(el, timeoutMs = 120000) {
+  return new Promise((resolve, reject) => {
+    if (el.readyState >= 2) return resolve();
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Stream timed out — try again in a moment'));
+    }, timeoutMs);
+    const onReady = () => { cleanup(); resolve(); };
+    const onErr = () => { cleanup(); reject(new Error('Stream failed to load')); };
+    const cleanup = () => {
+      clearTimeout(timer);
+      el.removeEventListener('canplay', onReady);
+      el.removeEventListener('error', onErr);
+    };
+    el.addEventListener('canplay', onReady, { once: true });
+    el.addEventListener('error', onErr, { once: true });
+  });
+}
+
 // --- Playback ---
 async function playTrack(id, title, artist, thumbnail, source) {
   $('npTitle').textContent = title || 'Unknown';
@@ -697,26 +716,49 @@ async function playTrack(id, title, artist, thumbnail, source) {
 
   try {
     if (source === 'ytmusic') {
-      const playRes = await fetch(
-        `${API}/ytmusic/play?id=${encodeURIComponent(id)}&artist=${encodeURIComponent(artist || '')}&title=${encodeURIComponent(title || '')}`,
-      );
-      if (!playRes.ok) {
-        const err = await playRes.json().catch(() => ({}));
-        throw new Error(err.message || err.error || `HTTP ${playRes.status}`);
+      showToast('Resolving stream...');
+      const q = new URLSearchParams({
+        id,
+        artist: artist || '',
+        title: title || '',
+      });
+      const metaRes = await fetch(`${API}/ytmusic/play?${q}`);
+      if (!metaRes.ok) {
+        const err = await metaRes.json().catch(() => ({}));
+        if (err.youtube_open_url) {
+          showToast('Full streaming blocked on this host. Opening YouTube...');
+          window.open(err.youtube_open_url, '_blank');
+          playerBar.classList.remove('show');
+          return;
+        }
+        throw new Error(err.message || err.error || `HTTP ${metaRes.status}`);
       }
-      const playData = await playRes.json();
-      if (!playData.url) throw new Error('No stream URL returned');
-      audio.setAttribute('src', playData.url);
+      const meta = await metaRes.json();
+      if (!meta.url) throw new Error('No stream URL returned');
+      if (meta.preview_only) {
+        showToast('Playing ~30s iTunes preview (full track unavailable on cloud hosting)');
+      }
+      audio.setAttribute('src', meta.url);
     } else {
       audio.setAttribute('src', `${API}/jiosaavn/track/${encodeURIComponent(id)}/play`);
     }
     audio.load();
+    await waitForAudioReady(audio);
     await audio.play();
   } catch (e) {
     showToast(`Playback failed: ${e.message || 'Could not play this track'}`);
+    if (source === 'ytmusic') {
+      const searchQ = [title, artist].filter(Boolean).join(' ').trim();
+      if (searchQ) {
+        setTimeout(() => {
+          window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(searchQ)}`, '_blank');
+        }, 800);
+      }
+    }
     audio.pause();
     audio.removeAttribute('src');
     audio.style.display = 'none';
+    playerBar.classList.remove('show');
     $('npTitle').textContent = 'No track selected';
     $('npArtist').textContent = '';
   }
