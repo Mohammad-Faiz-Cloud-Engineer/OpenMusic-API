@@ -37,29 +37,29 @@ function extractJioSaavnArtist(item) {
 
   // Primary artists first (cleanest)
   if (mi?.artistMap?.primary_artists?.length) {
-    const names = [...new Set(mi.artistMap.primary_artists.map(a => decodeHtmlEntities(a.name)).filter(Boolean))];
+    const names = [...new Set(mi.artistMap.primary_artists.map(a => a.name).filter(Boolean))];
     if (names.length) return names.join(', ');
   }
 
   // All artists fallback
   if (mi?.artistMap?.artists?.length) {
-    const names = [...new Set(mi.artistMap.artists.map(a => decodeHtmlEntities(a.name)).filter(Boolean))];
+    const names = [...new Set(mi.artistMap.artists.map(a => a.name).filter(Boolean))];
     if (names.length) return names.join(', ');
   }
 
   // subtitle field: "Artist Name - Album Name" format
   if (item.subtitle) {
-    const parts = decodeHtmlEntities(item.subtitle).split(' - ');
+    const parts = item.subtitle.split(' - ');
     if (parts.length > 1) return parts[0].trim();
-    return decodeHtmlEntities(item.subtitle).trim();
+    return item.subtitle.trim();
   }
 
   // music field (older API)
-  if (mi?.music) return decodeHtmlEntities(mi.music);
+  if (mi?.music) return mi.music;
 
   // Top-level artist_map (some endpoints)
   if (item.artist_map?.primary_artists?.length) {
-    const names = [...new Set(item.artist_map.primary_artists.map(a => decodeHtmlEntities(a.name)).filter(Boolean))];
+    const names = [...new Set(item.artist_map.primary_artists.map(a => a.name).filter(Boolean))];
     if (names.length) return names.join(', ');
   }
 
@@ -168,7 +168,7 @@ function normalizeAlbum(source, data) {
     data.more_info?.artistMap?.primary_artists ||
     data.artist_map?.primary_artists;
   if (pa && Array.isArray(pa) && pa.length) {
-    const names = [...new Set(pa.map(a => decodeHtmlEntities(a.name.trim())).filter(Boolean))];
+    const names = [...new Set(pa.map(a => a.name.trim()).filter(Boolean))];
     if (names.length) artist = names.join(', ');
   } else if (tracks.length) {
     const unique = [...new Set(tracks.map(t => t.artist))].filter(a => a && a !== 'Unknown');
@@ -204,7 +204,7 @@ function normalizePlaylist(source, data) {
     source,
     id: data.listid || data.id || '',
     title: decodeHtmlEntities(data.title || data.listname || ''),
-    owner: decodeHtmlEntities(data.more_info?.username || data.more_info?.firstname || data.username || data.owner || 'JioSaavn'),
+    owner: data.more_info?.username || data.more_info?.firstname || data.username || data.owner || 'JioSaavn',
     song_count: parseInt(data.song_count || tracks.length, 10) || tracks.length,
     duration_seconds: tracks.reduce((sum, t) => sum + (t.duration_seconds || 0), 0),
     thumbnail: tn,
@@ -219,7 +219,7 @@ function normalizeSuggestions(source, data, query) {
   } else if (data?.suggestions && Array.isArray(data.suggestions)) {
     suggestions = data.suggestions.map(s => (typeof s === 'string' ? s : s.text || s.title || '')).filter(Boolean);
   }
-  suggestions = [...new Set(suggestions.map(s => decodeHtmlEntities(s.trim())).filter(s => s.length > 0))];
+  suggestions = [...new Set(suggestions.map(s => s.trim()).filter(s => s.length > 0))];
   return { source, query, suggestions };
 }
 
@@ -229,7 +229,7 @@ function normalizeCharts(source, data) {
   const mapChart = c => ({
     id: c.id || c.chart_id || c.listid || c.tab_id || '',
     title: decodeHtmlEntities(c.title || c.name || ''),
-    description: decodeHtmlEntities(c.subtitle || c.description || (c.song_count ? `${c.song_count} songs` : '')),
+    description: c.subtitle || c.description || (c.song_count ? `${c.song_count} songs` : ''),
     thumbnail: extractJioSaavnThumbnail(c),
   });
 

@@ -100,10 +100,8 @@ async function getStreamUrl(id) {
   let format;
   let expiresAt = null;
 
-  // Always attempt 320kbps first regardless of the has320 flag — the flag is
-  // unreliable across API response shapes. Fall back to 160kbps, then 128kbps,
-  // then the DES decrypt path as a last resort.
-  const bitrates = has320 ? ['320', '160', '128'] : ['320', '160', '128'];
+  // Try 320kbps first, fall back to 128kbps, then fall back to DES decrypt
+  const bitrates = has320 ? ['320', '128'] : ['128'];
 
   let authSuccess = false;
   for (const bitrate of bitrates) {
@@ -133,9 +131,8 @@ async function getStreamUrl(id) {
     console.warn(`[jiosaavn] All auth token attempts failed for ${id}, falling back to decrypt`);
     try {
       resolvedUrl = decryptMediaUrl(encUrl);
-      // Always target 320kbps in the URL; the CDN will serve the highest
-      // available bitrate if 320 isn't present for this track.
-      resolvedUrl = resolvedUrl.replace(/(_\d+)(\.(?:mp4|m4a|webm))/, `_320$2`);
+      const qualitySuffix = has320 ? '320' : '160';
+      resolvedUrl = resolvedUrl.replace(/(_\d+)(\.(?:mp4|m4a|webm))/, `_${qualitySuffix}$2`);
       resolvedUrl = resolvedUrl.replace('web.saavncdn.com', 'aac.saavncdn.com');
       quality = extractQuality(resolvedUrl);
       format = resolvedUrl.includes('.webm') ? 'webm' : 'm4a';

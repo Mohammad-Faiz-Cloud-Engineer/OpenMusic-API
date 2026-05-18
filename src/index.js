@@ -2,7 +2,6 @@ const path = require('path');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const jiosaavnRoutes = require('../Jio Saavn/routes');
-const youtubeRoutes = require('../YouTube Music/routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,14 +30,13 @@ app.use((_req, res, next) => {
 app.use(express.static(path.join(__dirname, '../public')));
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', sources: ['jiosaavn', 'youtube'] });
+  res.json({ status: 'ok', sources: ['jiosaavn'] });
 });
 
 app.use('/jiosaavn', jiosaavnRoutes);
-app.use('/youtube', youtubeRoutes);
 
 app.use((_req, res) => {
-  res.status(404).json({ error: 'not_found', message: 'Endpoint not found. Available: /health, /jiosaavn/*, /youtube/*' });
+  res.status(404).json({ error: 'not_found', message: 'Endpoint not found. Available: /health, /jiosaavn/*' });
 });
 
 app.use((err, _req, res, _next) => {
@@ -57,7 +55,7 @@ process.on('uncaughtException', (err) => {
 
 const server = app.listen(PORT, () => {
   console.log(`OpenMusic API running on http://localhost:${PORT}`);
-  console.log('Sources: /jiosaavn  /youtube');
+  console.log('Sources: /jiosaavn');
 });
 
 function shutdown(signal) {
