@@ -53,7 +53,7 @@ const YTM_HTTP = axios.create({
     'Accept-Language': 'en-US,en;q=0.9',
     'X-YouTube-Client-Name': '67',
     'X-YouTube-Client-Version': '1.20230522.01.00',
-    'Cookie': 'CONSENT=YES+cb.20210328-17-p0.en+FX+478',
+    'Cookie': 'CONSENT=YES+cb.20210328-17-p0.en+FX+478; SOCS=CAEQMwgCEhJnd3NfMjAyNDA0MDctMF9SQzIaAmVuIAEaBgiA_LyaBg',
   },
 });
 
