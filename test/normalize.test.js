@@ -114,6 +114,31 @@ describe('extractJioSaavnArtist', () => {
     assert.equal(extractJioSaavnArtist(item), 'Arijit, Pritam');
   });
 
+  it('decodes HTML entities in artist names', () => {
+    const item = {
+      more_info: {
+        artistMap: {
+          primary_artists: [{ name: 'Shankar &amp; Ehsaan &amp; Loy' }],
+        },
+      },
+    };
+    assert.equal(extractJioSaavnArtist(item), 'Shankar & Ehsaan & Loy');
+  });
+
+  it('decodes HTML entities from subtitle field', () => {
+    assert.equal(
+      extractJioSaavnArtist({ subtitle: 'Shankar &amp; Ehsaan - Album' }),
+      'Shankar & Ehsaan',
+    );
+  });
+
+  it('decodes HTML entities from music field', () => {
+    assert.equal(
+      extractJioSaavnArtist({ more_info: { music: 'A &amp; B' } }),
+      'A & B',
+    );
+  });
+
   it('parses artist from subtitle before music field', () => {
     assert.equal(
       extractJioSaavnArtist({ subtitle: 'Artist Name - Album Name', more_info: { music: 'Other' } }),

@@ -11,7 +11,7 @@ app_port: 7860
 
 [![Tests](https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API/actions/workflows/test.yml/badge.svg)](https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API/actions/workflows/test.yml)
 
-A JioSaavn music API proxy that scrapes metadata and streams audio. No API keys, no sign-up, no database. Just a JSON API and a built-in browser UI.
+A multi-source music API proxy that scrapes metadata and streams audio from **JioSaavn** and **YouTube Music**. No API keys, no sign-up, no database. Just a JSON API and a built-in browser UI.
 
 ---
 
@@ -55,13 +55,19 @@ Opens on `http://localhost:3000`. Hit `/health` to check.
 npm test
 ```
 
-Runs unit tests for the normalizer (JioSaavn response shapes, HTML entities, thumbnails) and decrypt validation.
+Runs unit tests for both sources — JioSaavn and YouTube Music normalizers, HTML entity decoding, thumbnail extraction, response shape variants, and decrypt validation.
 
 ---
 
 ## API Endpoints
 
-### JioSaavn API `(/jiosaavn/*)`
+### Health
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Server status + active sources |
+
+### JioSaavn `(/jiosaavn/*)`
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -73,6 +79,21 @@ Runs unit tests for the normalizer (JioSaavn response shapes, HTML entities, thu
 | `GET` | `/jiosaavn/track/:id` | Get stream URL for a track |
 | `GET` | `/jiosaavn/track/:id/play` | **Proxy audio stream** (pipe through server) |
 
+### YouTube Music `(/youtube/*)`
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/youtube/search?q=<query>` | Search songs on YouTube Music |
+| `GET` | `/youtube/suggestions?q=<query>` | Autocomplete suggestions |
+| `GET` | `/youtube/charts` | Charts (returns empty — requires auth) |
+| `GET` | `/youtube/track/:id` | Get stream URL for a YTM track |
+| `GET` | `/youtube/track/:id?title=<t>&artist=<a>` | Stream URL with metadata hint (skips extra round-trip) |
+| `GET` | `/youtube/track/:id/play` | **Proxy audio stream** (pipe through server) |
+| `GET` | `/youtube/album/:id` | Returns `501` — YTM albums require auth |
+| `GET` | `/youtube/playlist/:id` | Returns `501` — YTM playlists require auth |
+
+> **YouTube Music streams** are resolved via Smart Track Replacement: YTM search results are returned as metadata, but audio is streamed from JioSaavn's CDN. This bypasses YouTube's rotating signature ciphers entirely.
+
 ---
 
 ## Copy-Paste Examples
@@ -81,6 +102,8 @@ Runs unit tests for the normalizer (JioSaavn response shapes, HTML entities, thu
 
 ```javascript
 const BASE = 'https://LocalFind-OpenMusic-API.hf.space';
+
+// ── JioSaavn ──────────────────────────────────────────────────────────────
 
 // Search songs
 const searchRes = await fetch(`${BASE}/jiosaavn/search?q=tere naal`);
@@ -107,12 +130,35 @@ console.log(chartsData.charts);
 // Get playable stream URL for a track
 const streamRes = await fetch(`${BASE}/jiosaavn/track/0gKfBAgi`);
 const streamData = await streamRes.json();
-console.log(streamData.stream_url);  // ← this is the actual audio URL
+console.log(streamData.stream_url);  // ← actual audio URL
 
 // Play audio in browser (uses server-side proxy)
 const audio = new Audio();
 audio.src = `${BASE}/jiosaavn/track/0gKfBAgi/play`;
 audio.play();
+
+// ── YouTube Music ─────────────────────────────────────────────────────────
+
+// Search songs on YouTube Music
+const ytSearchRes = await fetch(`${BASE}/youtube/search?q=tere naal`);
+const ytSearchData = await ytSearchRes.json();
+console.log(ytSearchData.results);
+// [{ id, title, artist, album, duration_seconds, thumbnail, stream_url }, ...]
+
+// Get stream URL for a YTM track (Smart Track Replacement via JioSaavn CDN)
+const ytStreamRes = await fetch(`${BASE}/youtube/track/dQw4w9WgXcQ`);
+const ytStreamData = await ytStreamRes.json();
+console.log(ytStreamData.stream_url);
+
+// Pass title + artist hint to skip the metadata round-trip
+const ytStreamFast = await fetch(
+  `${BASE}/youtube/track/dQw4w9WgXcQ?title=Never+Gonna+Give+You+Up&artist=Rick+Astley`
+);
+
+// Play audio in browser
+const ytAudio = new Audio();
+ytAudio.src = `${BASE}/youtube/track/dQw4w9WgXcQ/play?title=Never+Gonna+Give+You+Up&artist=Rick+Astley`;
+ytAudio.play();
 ```
 
 ### Python (requests)
@@ -122,6 +168,7 @@ import requests
 
 BASE = 'https://LocalFind-OpenMusic-API.hf.space'
 
+# JioSaavn
 search = requests.get(f'{BASE}/jiosaavn/search', params={'q': 'tere naal'}).json()
 print(search['results'][0]['title'])  # first result title
 
@@ -130,6 +177,16 @@ print(album['title'], album['song_count'], 'tracks')
 
 stream = requests.get(f'{BASE}/jiosaavn/track/0gKfBAgi').json()
 print('Stream URL:', stream['stream_url'])
+
+# YouTube Music
+yt_search = requests.get(f'{BASE}/youtube/search', params={'q': 'tere naal'}).json()
+print(yt_search['results'][0]['title'])
+
+yt_stream = requests.get(
+    f'{BASE}/youtube/track/dQw4w9WgXcQ',
+    params={'title': 'Never Gonna Give You Up', 'artist': 'Rick Astley'}
+).json()
+print('YTM Stream URL:', yt_stream['stream_url'])
 ```
 
 ### cURL
@@ -137,21 +194,27 @@ print('Stream URL:', stream['stream_url'])
 ```bash
 BASE=https://LocalFind-OpenMusic-API.hf.space
 
-# Search
+# JioSaavn search
 curl "$BASE/jiosaavn/search?q=tere%20naal"
 
-# Album
+# JioSaavn album
 curl "$BASE/jiosaavn/album/70160165"
 
-# Stream URL
+# JioSaavn stream URL
 curl "$BASE/jiosaavn/track/0gKfBAgi"
+
+# YouTube Music search
+curl "$BASE/youtube/search?q=tere%20naal"
+
+# YouTube Music stream URL (with metadata hint)
+curl "$BASE/youtube/track/dQw4w9WgXcQ?title=Tere%20Naal&artist=Dino%20James"
 ```
 
 ---
 
 ## Response Shapes
 
-Every endpoint returns JSON. Here's what you get:
+Every endpoint returns JSON. Both sources return the same shape so clients can treat them identically.
 
 ### Search results
 
@@ -167,6 +230,30 @@ Every endpoint returns JSON. Here's what you get:
       "album": "Tere Naal",
       "duration_seconds": 213,
       "thumbnail": "https://c.saavncdn.com/738/...-500x500.jpg",
+      "language": "hindi",
+      "has_lyrics": true,
+      "explicit": false,
+      "stream_url": null
+    }
+  ]
+}
+```
+
+```json
+{
+  "source": "youtube",
+  "query": "tere naal",
+  "results": [
+    {
+      "id": "dQw4w9WgXcQ",
+      "title": "Tere Naal",
+      "artist": "Dino James",
+      "album": "Tere Naal",
+      "duration_seconds": 213,
+      "thumbnail": "https://lh3.googleusercontent.com/...",
+      "language": null,
+      "has_lyrics": false,
+      "explicit": false,
       "stream_url": null
     }
   ]
@@ -181,12 +268,25 @@ Every endpoint returns JSON. Here's what you get:
   "source": "jiosaavn",
   "quality": "320kbps",
   "format": "m4a",
-  "stream_url": "https://...(!@# auth token...)&Expires=1712345678",
+  "stream_url": "https://aac.saavncdn.com/...&Expires=1712345678",
   "expires_at": "2026-05-14T12:00:00.000Z"
 }
 ```
 
-### Album / Playlist
+```json
+{
+  "id": "dQw4w9WgXcQ",
+  "source": "youtube",
+  "quality": "320kbps",
+  "format": "m4a",
+  "stream_url": "https://aac.saavncdn.com/...&Expires=1712345678",
+  "expires_at": "2026-05-14T12:00:00.000Z"
+}
+```
+
+> YouTube Music stream URLs are resolved via JioSaavn's CDN (Smart Track Replacement). The `source` field stays `"youtube"` so clients know the original search source.
+
+### Album / Playlist (JioSaavn only)
 
 ```json
 {
@@ -213,7 +313,7 @@ Every endpoint returns JSON. Here's what you get:
 }
 ```
 
-### Charts
+### Charts (JioSaavn only)
 
 ```json
 {
@@ -239,18 +339,46 @@ Every endpoint returns JSON. Here's what you get:
 }
 ```
 
+### Error shapes
+
+```json
+{ "error": "missing_query",          "message": "Query parameter \"q\" is required" }
+{ "error": "track_not_found",        "source": "jiosaavn", "message": "..." }
+{ "error": "source_unavailable",     "source": "youtube",  "message": "..." }
+{ "error": "not_implemented",        "source": "youtube",  "message": "YouTube Music album details require authentication and are not supported" }
+{ "error": "rate_limited",           "message": "Too many requests. Try again in a minute." }
+```
+
 ---
 
 ## How It Works
 
 ```
-Browser / App → Express → Scraper (JioSaavn) → Normalizer → Cache → JSON
+Browser / App
+     │
+     ▼
+Express  ──── rate limiter (120 req/min/IP)
+     │
+     ├── /jiosaavn/*  ──► JioSaavn Scraper ──► JioSaavn API
+     │                         │
+     │                    Normalizer (decodes HTML entities, picks best thumbnail,
+     │                    extracts artists, handles all response shapes)
+     │                         │
+     │                      Cache ──► JSON response
+     │
+     └── /youtube/*   ──► YouTube Music Scraper ──► YTM internal API (search/suggestions)
+                               │
+                          Smart Track Replacement:
+                          search JioSaavn for the same song,
+                          resolve stream via auth token or DES decrypt
+                               │
+                            Cache ──► JSON response (source: "youtube")
 ```
 
-- Each request checks an in-memory cache first
-- If missed, the scraper fetches from the JioSaavn API, normalizes the response, caches it, and returns JSON
-- Stream URLs are decrypted with a hardcoded DES key, or fetched via auth token generation
-- `/jiosaavn/track/:id/play` proxies the audio through the server to bypass CORS and Referer restrictions
+- Every request checks an in-memory cache first (per-source, per-endpoint)
+- JioSaavn stream URLs carry an `Expires=` param; the cache evicts them 3 minutes early to prevent serving a dying URL
+- All string fields (title, artist, album, suggestions) are HTML-entity decoded at the normalizer boundary — clients always receive clean UTF-8
+- `/jiosaavn/track/:id/play` and `/youtube/track/:id/play` proxy audio through the server with range request support to bypass CORS and CDN Referer restrictions
 
 ### Cache TTLs
 
@@ -258,7 +386,7 @@ Browser / App → Express → Scraper (JioSaavn) → Normalizer → Cache → JS
 |---|---|---|
 | Search / Suggestions | 5 min | `/search`, `/suggestions` |
 | Album / Playlist / Charts | 10 min | `/album`, `/playlist`, `/charts` |
-| Stream URLs | 25 min | `/track/:id` |
+| Stream URLs | 25 min (+ early eviction via `expires_at`) | `/track/:id` |
 
 ---
 
@@ -270,7 +398,7 @@ Open the root URL (`/`) in a browser. There's a dark-themed single-page app for 
 
 ## Rate Limiting
 
-120 requests per minute per IP. After that, you get:
+120 requests per minute per IP. After that:
 
 ```json
 { "error": "rate_limited", "message": "Too many requests. Try again in a minute." }
@@ -297,7 +425,7 @@ Open the root URL (`/`) in a browser. There's a dark-themed single-page app for 
 |---|---|---|
 | `PORT` | `3000` | Server port (Hugging Face sets this to `7860` automatically) |
 
-No other config is needed. Everything (JioSaavn base URL, DES key, user agents) is hardcoded with sensible defaults.
+No other config is needed. JioSaavn base URL, DES key, YTM client context, and user agents are all hardcoded with sensible defaults.
 
 ---
 
