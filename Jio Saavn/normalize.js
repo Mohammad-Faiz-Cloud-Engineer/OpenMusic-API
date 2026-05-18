@@ -90,11 +90,11 @@ function decodeHtmlEntitiesOnce(str) {
 
 function decodeHtmlEntities(str) {
   if (!str || typeof str !== 'string') return str;
-  // Two passes: first pass handles normal entities, second pass handles
-  // double-encoded sequences like &amp;amp; → &amp; → &
-  const once = decodeHtmlEntitiesOnce(str);
-  // Only run second pass if there are still entities remaining
-  return once.includes('&') ? decodeHtmlEntitiesOnce(once) : once;
+  // Single pass: decode all entities. &amp; is decoded last in decodeHtmlEntitiesOnce
+  // so it doesn't interfere with other entities. Double-encoded sequences like
+  // &amp;amp; decode to &amp; (one level only), which is the correct safe behaviour —
+  // we never fully unescape double-encoded markup to raw HTML characters.
+  return decodeHtmlEntitiesOnce(str);
 }
 
 // ── JioSaavn song normalizer ──────────────────────────────────────────────
@@ -217,6 +217,7 @@ function normalizePlaylist(source, data) {
     song_count: parseInt(data.song_count || tracks.length, 10) || tracks.length,
     duration_seconds: tracks.reduce((sum, t) => sum + (t.duration_seconds || 0), 0),
     thumbnail: tn,
+    language: data.more_info?.language || data.language || null,
     tracks,
   };
 }

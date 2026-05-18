@@ -25,10 +25,11 @@ const HTTP = axios.create({
 });
 
 // ── Response parser ───────────────────────────────────────────────────────
-// JioSaavn sometimes prefixes responses with '__JIO_SAVAAN__'
+// JioSaavn sometimes prefixes responses with '__JIO_SAAVN__'.
+// Note: the upstream prefix is intentionally spelled '__JIO_SAAVN__' (not a typo).
 function parseResponse(data) {
   if (typeof data === 'string') {
-    const prefix = '__JIO_SAVAAN__';
+    const prefix = '__JIO_SAAVN__';
     if (data.startsWith(prefix)) {
       return JSON.parse(data.slice(prefix.length));
     }
@@ -103,7 +104,7 @@ async function getStreamUrl(id) {
   // Always attempt 320kbps first regardless of the has320 flag — the flag is
   // unreliable across API response shapes. Fall back to 160kbps, then 128kbps,
   // then the DES decrypt path as a last resort.
-  const bitrates = has320 ? ['320', '160', '128'] : ['320', '160', '128'];
+  const bitrates = ['320', '160', '128'];
 
   let authSuccess = false;
   for (const bitrate of bitrates) {

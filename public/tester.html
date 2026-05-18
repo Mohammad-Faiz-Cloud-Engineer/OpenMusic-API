@@ -388,7 +388,6 @@ body {
     <div class="sidebar-section">
       <div class="sidebar-label">Source</div>
       <button class="source-btn active" data-source="jiosaavn">JioSaavn</button>
-      <button class="source-btn" data-source="ytmusic">YouTube Music</button>
     </div>
     <div class="sidebar-section" id="endpointList">
       <div class="sidebar-label">Endpoints</div>
@@ -442,7 +441,6 @@ body {
 
 <script>
 const BASE_INPUT = document.getElementById('apiBase');
-const SOURCE_BTNS = document.querySelectorAll('.source-btn');
 const ENDPOINT_LIST = document.getElementById('endpointList');
 const EP_TITLE = document.getElementById('epTitle');
 const EP_PATH = document.getElementById('epPath');
@@ -460,7 +458,6 @@ const RESP_HEADERS = document.getElementById('respHeaders');
 const AUDIO_CARD = document.getElementById('audioCard');
 const AUDIO_PLAYER = document.getElementById('audioPlayer');
 
-let currentSource = 'jiosaavn';
 let currentEndpoint = null;
 
 const ENDPOINTS = {
@@ -533,66 +530,6 @@ const ENDPOINTS = {
       ],
       hasStream: true
     }
-  ],
-  ytmusic: [
-    {
-      id: 'search',
-      label: 'Search',
-      path: '/ytmusic/search?q={q}',
-      desc: 'Search for songs on YouTube Music',
-      params: [
-        { key: 'q', label: 'q', type: 'text', placeholder: 'e.g. tere naal', required: true }
-      ],
-      hasStream: false
-    },
-    {
-      id: 'suggestions',
-      label: 'Suggestions',
-      path: '/ytmusic/suggestions?q={q}',
-      desc: 'Autocomplete search suggestions',
-      params: [
-        { key: 'q', label: 'q', type: 'text', placeholder: 'e.g. tere', required: true }
-      ],
-      hasStream: false
-    },
-    {
-      id: 'album',
-      label: 'Album',
-      path: '/ytmusic/album/{id}',
-      desc: 'Get album details and track list',
-      params: [
-        { key: 'id', label: 'id', type: 'text', placeholder: 'e.g. MPREb_DHWbS7Con8q', required: true }
-      ],
-      hasStream: false
-    },
-    {
-      id: 'playlist',
-      label: 'Playlist',
-      path: '/ytmusic/playlist/{id}',
-      desc: 'Get playlist details and track list',
-      params: [
-        { key: 'id', label: 'id', type: 'text', placeholder: 'e.g. PL...', required: true }
-      ],
-      hasStream: false
-    },
-    {
-      id: 'charts',
-      label: 'Charts',
-      path: '/ytmusic/charts',
-      desc: 'Get trending music charts',
-      params: [],
-      hasStream: false
-    },
-    {
-      id: 'track',
-      label: 'Track',
-      path: '/ytmusic/track/{id}',
-      desc: 'Get track metadata (no stream URL; opens YouTube)',
-      params: [
-        { key: 'id', label: 'id', type: 'text', placeholder: 'e.g. dQw4w9WgXcQ', required: true }
-      ],
-      hasStream: false
-    }
   ]
 };
 
@@ -626,7 +563,7 @@ function safeHttpUrl(url) {
 
 function buildEndpoints() {
   ENDPOINT_LIST.innerHTML = '<div class="sidebar-label">Endpoints</div>';
-  const eps = ENDPOINTS[currentSource];
+  const eps = ENDPOINTS['jiosaavn'];
   eps.forEach((ep, i) => {
     const btn = document.createElement('button');
     btn.className = 'endpoint-btn' + (i === 0 ? ' active' : '');
@@ -646,7 +583,7 @@ function selectEndpoint(id) {
 }
 
 function renderEndpoint() {
-  const ep = ENDPOINTS[currentSource].find(e => e.id === currentEndpoint);
+  const ep = ENDPOINTS['jiosaavn'].find(e => e.id === currentEndpoint);
   if (!ep) return;
 
   EP_TITLE.textContent = ep.label;
@@ -677,7 +614,7 @@ function renderEndpoint() {
 }
 
 function getParamValues() {
-  const ep = ENDPOINTS[currentSource].find(e => e.id === currentEndpoint);
+  const ep = ENDPOINTS['jiosaavn'].find(e => e.id === currentEndpoint);
   const vals = {};
   ep.params.forEach(p => {
     const el = document.getElementById(`param-${p.key}`);
@@ -687,7 +624,7 @@ function getParamValues() {
 }
 
 function buildUrl() {
-  const ep = ENDPOINTS[currentSource].find(e => e.id === currentEndpoint);
+  const ep = ENDPOINTS['jiosaavn'].find(e => e.id === currentEndpoint);
   if (!ep) return null;
   const apiBase = resolveApiBase();
   if (!apiBase) return null;
@@ -706,7 +643,7 @@ function buildUrl() {
 }
 
 function validateParams() {
-  const ep = ENDPOINTS[currentSource].find(e => e.id === currentEndpoint);
+  const ep = ENDPOINTS['jiosaavn'].find(e => e.id === currentEndpoint);
   for (const p of ep.params) {
     if (p.required) {
       const val = document.getElementById(`param-${p.key}`)?.value.trim();
@@ -722,7 +659,7 @@ function validateParams() {
 async function sendRequest() {
   if (!validateParams()) return;
 
-  const ep = ENDPOINTS[currentSource].find(e => e.id === currentEndpoint);
+  const ep = ENDPOINTS['jiosaavn'].find(e => e.id === currentEndpoint);
   const url = buildUrl();
   if (!url) return;
 
@@ -779,7 +716,7 @@ async function sendRequest() {
       RESP_CARD.classList.add('show');
       switchPane('formatted');
 
-      if (ep.id === 'track' && currentSource === 'jiosaavn' && data.stream_url) {
+      if (ep.id === 'track' && data.stream_url) {
         const streamSrc = safeHttpUrl(data.stream_url);
         if (streamSrc) {
           AUDIO_PLAYER.setAttribute('src', streamSrc);
@@ -815,7 +752,7 @@ function switchPane(id) {
 }
 
 function clearAll() {
-  const ep = ENDPOINTS[currentSource].find(e => e.id === currentEndpoint);
+  const ep = ENDPOINTS['jiosaavn'].find(e => e.id === currentEndpoint);
   if (ep) {
     ep.params.forEach(p => {
       const el = document.getElementById(`param-${p.key}`);
@@ -838,15 +775,6 @@ function showToast(msg, type) {
 }
 
 // ── Event Listeners ──
-SOURCE_BTNS.forEach(btn => {
-  btn.addEventListener('click', () => {
-    SOURCE_BTNS.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentSource = btn.dataset.source;
-    buildEndpoints();
-  });
-});
-
 SEND_BTN.addEventListener('click', sendRequest);
 
 CLEAR_BTN.addEventListener('click', clearAll);

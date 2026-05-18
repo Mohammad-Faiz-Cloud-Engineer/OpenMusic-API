@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JioSaavn API Tester</title>
+<title>OpenMusic API</title>
 <style>
 :root {
   --bg: #0f0f14;
@@ -669,7 +669,8 @@ function escapeHtml(str) {
 
 function escapeAttr(str) {
   if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Build on escapeHtml so plain text is never double-escaped (e.g. &amp; → &amp;amp;).
+  return escapeHtml(str).replace(/"/g, '&quot;');
 }
 
 function showToast(msg) {

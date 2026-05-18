@@ -86,7 +86,7 @@ router.get('/album/:id', async (req, res) => {
     if (err.message?.includes('not found') || err.message?.includes('not_found')) {
       return res.status(404).json({ error: 'album_not_found', source: 'jiosaavn', message: err.message });
     }
-    if (err.message?.includes('unavailable') || err.message?.includes('timed out')) {
+    if (err.message?.includes('unavailable') || err.message?.includes('timed out') || err.message?.includes('returned 5')) {
       return res.status(503).json({ error: 'source_unavailable', source: 'jiosaavn', message: err.message });
     }
     console.error('[jiosaavn] album error:', err.message);
@@ -113,7 +113,7 @@ router.get('/playlist/:id', async (req, res) => {
     if (err.message?.includes('not found') || err.message?.includes('not_found')) {
       return res.status(404).json({ error: 'playlist_not_found', source: 'jiosaavn', message: err.message });
     }
-    if (err.message?.includes('unavailable') || err.message?.includes('timed out')) {
+    if (err.message?.includes('unavailable') || err.message?.includes('timed out') || err.message?.includes('returned 5')) {
       return res.status(503).json({ error: 'source_unavailable', source: 'jiosaavn', message: err.message });
     }
     console.error('[jiosaavn] playlist error:', err.message);
@@ -132,7 +132,7 @@ router.get('/charts', async (_req, res) => {
     metadataCache.set(cacheKey, result);
     res.json(result);
   } catch (err) {
-    if (err.message?.includes('unavailable') || err.message?.includes('timed out')) {
+    if (err.message?.includes('unavailable') || err.message?.includes('timed out') || err.message?.includes('returned 5')) {
       return res.status(503).json({ error: 'source_unavailable', source: 'jiosaavn', message: err.message });
     }
     console.error('[jiosaavn] charts error:', err.message);

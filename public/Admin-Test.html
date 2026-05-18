@@ -309,7 +309,6 @@ body {
 <div class="search-section">
   <div class="source-tabs">
     <button class="source-tab active" data-source="jiosaavn">JioSaavn</button>
-    <button class="source-tab" data-source="ytmusic">YouTube Music</button>
   </div>
   <div class="search-row">
     <div style="flex:1; position:relative;">
@@ -359,7 +358,6 @@ const NP_ARTIST = document.getElementById('npArtist');
 const AUDIO = document.getElementById('audioPlayer');
 const CLOSE_PLAYER = document.getElementById('closePlayer');
 
-let currentSource = 'jiosaavn';
 let suggestionsTimer = null;
 
 function base() {
@@ -388,7 +386,7 @@ function jiosaavnPlayStreamUrl(trackId) {
 }
 
 function src(path) {
-  return `${base()}/${currentSource}${path}`;
+  return `${base()}/jiosaavn${path}`;
 }
 
 function escapeHtml(s) {
@@ -417,9 +415,6 @@ document.querySelectorAll('.source-tab').forEach(tab => {
     document.querySelectorAll('.source-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     currentSource = tab.dataset.source;
-    SEARCH_INPUT.placeholder = currentSource === 'jiosaavn'
-      ? 'Search JioSaavn for songs, artists, albums...'
-      : 'Search YouTube Music for songs, artists, albums...';
   });
 });
 
@@ -517,19 +512,10 @@ async function playTrack(card) {
   document.querySelectorAll('.track-card.playing').forEach(c => c.classList.remove('playing'));
 
   NP_TITLE.textContent = title || 'Unknown';
-  NP_ARTIST.textContent = `${artist || ''} \u00b7 ${currentSource === 'jiosaavn' ? 'JioSaavn' : 'YouTube Music'}`;
+  NP_ARTIST.textContent = `${artist || ''} \u00b7 JioSaavn`;
   PLAYER_BAR.classList.add('show');
   AUDIO.pause();
   AUDIO.removeAttribute('src');
-
-  if (currentSource === 'ytmusic') {
-    NP_ARTIST.textContent = `${artist || ''} \u00b7 YouTube Music`;
-    const ytUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
-    showToast(`YouTube Music cannot stream directly. Opening in YouTube...`, 'ok');
-    window.open(ytUrl, '_blank');
-    PLAYER_BAR.classList.remove('show');
-    return;
-  }
 
   card.classList.add('playing');
 

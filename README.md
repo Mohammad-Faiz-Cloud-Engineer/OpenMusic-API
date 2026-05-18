@@ -181,8 +181,8 @@ Every endpoint returns JSON. Here's what you get:
   "source": "jiosaavn",
   "quality": "320kbps",
   "format": "m4a",
-  "stream_url": "https://...(!@# auth token...)&Expires=1712345678",
-  "expires_at": "2026-05-14T12:00:00.000Z"
+  "stream_url": "https://aac.saavncdn.com/..._320.mp4?Signature=<sig>&Key-Pair-Id=<key>&Expires=<unix_ts>",
+  "expires_at": "2026-12-31T12:00:00.000Z"
 }
 ```
 
