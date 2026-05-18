@@ -2,7 +2,7 @@ const axios = require('axios');
 const { decryptMediaUrl } = require('./decrypt');
 const {
   normalizeSearch, normalizeStream, normalizeAlbum, normalizePlaylist,
-  normalizeSuggestions, normalizeCharts,
+  normalizeSuggestions, normalizeCharts, decodeHtmlEntities,
 } = require('./normalize');
 
 const BASE_URL = 'https://www.jiosaavn.com/api.php';
@@ -201,7 +201,7 @@ async function getSuggestions(query) {
       ...new Set(
         results
           .slice(0, 10)
-          .map(r => r.title || r.song)
+          .map(r => decodeHtmlEntities(r.title || r.song || ''))
           .filter(Boolean)
           .map(s => s.trim())
           .filter(s => s.length > 0)

@@ -69,10 +69,9 @@ function extractJioSaavnArtist(item) {
 // ── HTML entity decoder ───────────────────────────────────────────────────
 // JioSaavn returns titles with HTML entities; decode them without a DOM
 // (Node.js safe). Handles both decimal NCRs (&#39;) and hex NCRs (&#x2019;).
-function decodeHtmlEntities(str) {
+// Runs two passes to handle double-encoded sequences (e.g. &amp;amp; → &amp; → &).
+function decodeHtmlEntitiesOnce(str) {
   if (!str || typeof str !== 'string') return str;
-  // Decode &amp; last so double-encoded sequences (e.g. &amp;lt;) are not
-  // fully unescaped into meta-characters like '<'.
   return str
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
@@ -85,7 +84,17 @@ function decodeHtmlEntities(str) {
     .replace(/&#x([0-9a-fA-F]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
     // Decimal numeric character references (e.g. &#8217; → ')
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    // &amp; must be last so it doesn't interfere with other entities above
     .replace(/&amp;/g, '&');
+}
+
+function decodeHtmlEntities(str) {
+  if (!str || typeof str !== 'string') return str;
+  // Two passes: first pass handles normal entities, second pass handles
+  // double-encoded sequences like &amp;amp; → &amp; → &
+  const once = decodeHtmlEntitiesOnce(str);
+  // Only run second pass if there are still entities remaining
+  return once.includes('&') ? decodeHtmlEntitiesOnce(once) : once;
 }
 
 // ── JioSaavn song normalizer ──────────────────────────────────────────────
