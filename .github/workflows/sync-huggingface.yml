@@ -16,4 +16,4 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git push https://LocalFind:${HF_TOKEN}@huggingface.co/spaces/LocalFind/OpenMusic-API HEAD:main
+          git push https://LocalFind:${HF_TOKEN}@huggingface.co/spaces/LocalFind/OpenMusic-API HEAD:main --force
