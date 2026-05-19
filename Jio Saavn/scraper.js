@@ -4,7 +4,6 @@ const {
   normalizeSearch, normalizeStream, normalizeAlbum, normalizePlaylist,
   normalizeSuggestions, normalizeCharts, decodeHtmlEntities,
 } = require('./normalize');
-const { upsertSongRecords } = require('../recommendation/content');
 
 const BASE_URL = 'https://www.jiosaavn.com/api.php';
 
@@ -64,11 +63,7 @@ async function callApi(call, params = {}) {
 // ── Search ────────────────────────────────────────────────────────────────
 async function search(query) {
   const data = await callApi('search.getResults', { q: query, n: 20, p: 1 });
-  const result = normalizeSearch('jiosaavn', data, query);
-  // Populate the recommendation catalog with search results so that
-  // content-based similarity is available immediately after a search.
-  upsertSongRecords(result.results);
-  return result;
+  return normalizeSearch('jiosaavn', data, query);
 }
 
 // ── Stream URL ────────────────────────────────────────────────────────────
@@ -151,16 +146,6 @@ async function getStreamUrl(id) {
     }
   }
 
-  // Populate the recommendation catalog with this song so that content-based
-  // similarity works immediately when the user plays it. getStreamUrl is called
-  // for every play, making this the most reliable catalog population point.
-  try {
-    const normalized = normalizeSearch('jiosaavn', { results: songs }, '');
-    upsertSongRecords(normalized.results);
-  } catch {
-    // Non-critical — never block stream URL resolution
-  }
-
   return normalizeStream('jiosaavn', id, resolvedUrl, format, quality, expiresAt);
 }
 
@@ -178,10 +163,7 @@ async function getAlbum(id) {
   if (!data || (typeof data === 'object' && !data.albumid && !data.id && !data.title && !data.songs && !data.list)) {
     throw new Error('Album not found');
   }
-  const result = normalizeAlbum('jiosaavn', data);
-  // Populate the recommendation catalog with album tracks.
-  upsertSongRecords(result.tracks);
-  return result;
+  return normalizeAlbum('jiosaavn', data);
 }
 
 // ── Playlist ──────────────────────────────────────────────────────────────
@@ -190,10 +172,7 @@ async function getPlaylist(id) {
   if (!data || (typeof data === 'object' && !data.listid && !data.id && !data.title && !data.songs && !data.list)) {
     throw new Error('Playlist not found');
   }
-  const result = normalizePlaylist('jiosaavn', data);
-  // Populate the recommendation catalog with playlist tracks.
-  upsertSongRecords(result.tracks);
-  return result;
+  return normalizePlaylist('jiosaavn', data);
 }
 
 // ── Suggestions ───────────────────────────────────────────────────────────

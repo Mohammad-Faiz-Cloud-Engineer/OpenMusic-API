@@ -10,7 +10,6 @@ app_port: 7860
 # OpenMusic API
 
 [![Tests](https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API/actions/workflows/test.yml/badge.svg)](https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API/actions/workflows/test.yml)
-[![79 Tests Passing](https://img.shields.io/badge/tests-79%20passing-brightgreen)](https://github.com/Mohammad-Faiz-Cloud-Engineer/OpenMusic-API/actions/workflows/test.yml)
 
 A JioSaavn music API proxy that scrapes metadata and streams audio. No API keys, no sign-up, no database. Just a JSON API and a built-in browser UI.
 
