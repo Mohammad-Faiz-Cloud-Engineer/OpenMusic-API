@@ -151,6 +151,16 @@ async function getStreamUrl(id) {
     }
   }
 
+  // Populate the recommendation catalog with this song so that content-based
+  // similarity works immediately when the user plays it. getStreamUrl is called
+  // for every play, making this the most reliable catalog population point.
+  try {
+    const normalized = normalizeSearch('jiosaavn', { results: songs }, '');
+    upsertSongRecords(normalized.results);
+  } catch {
+    // Non-critical — never block stream URL resolution
+  }
+
   return normalizeStream('jiosaavn', id, resolvedUrl, format, quality, expiresAt);
 }
 
