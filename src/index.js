@@ -22,8 +22,10 @@ app.use(express.json());
 
 app.use((_req, res, next) => {
   res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Range');
+  // POST is required for POST /jiosaavn/transition (behavior engine).
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  // Content-Type is required for JSON POST bodies.
+  res.set('Access-Control-Allow-Headers', 'Range, Content-Type');
   if (_req.method === 'OPTIONS') {
     return res.sendStatus(204);
   }
