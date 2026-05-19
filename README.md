@@ -1,6 +1,6 @@
 ---
 title: OpenMusic API
-emoji: 🎵
+emoji: 
 colorFrom: indigo
 colorTo: purple
 sdk: docker
@@ -107,7 +107,7 @@ console.log(chartsData.charts);
 // Get playable stream URL for a track
 const streamRes = await fetch(`${BASE}/jiosaavn/track/0gKfBAgi`);
 const streamData = await streamRes.json();
-console.log(streamData.stream_url);  // ← this is the actual audio URL
+console.log(streamData.stream_url);  // <- this is the actual audio URL
 
 // Play audio in browser (uses server-side proxy)
 const audio = new Audio();
@@ -244,7 +244,7 @@ Every endpoint returns JSON. Here's what you get:
 ## How It Works
 
 ```
-Browser / App → Express → Scraper (JioSaavn) → Normalizer → Cache → JSON
+Browser / App -> Express -> Scraper (JioSaavn) -> Normalizer -> Cache -> JSON
 ```
 
 - Each request checks an in-memory cache first

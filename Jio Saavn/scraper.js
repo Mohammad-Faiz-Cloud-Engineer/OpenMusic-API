@@ -101,7 +101,7 @@ async function getStreamUrl(id) {
   let format;
   let expiresAt = null;
 
-  // Always attempt 320kbps first regardless of the has320 flag — the flag is
+  // Always attempt 320kbps first regardless of the has320 flag - the flag is
   // unreliable across API response shapes. Fall back to 160kbps, then 128kbps,
   // then the DES decrypt path as a last resort.
   const bitrates = ['320', '160', '128'];

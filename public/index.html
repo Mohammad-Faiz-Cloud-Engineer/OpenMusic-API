@@ -349,7 +349,7 @@ a { color: var(--accent); text-decoration: none; }
 <body>
 
 <div class="header">
-  <h1>&#9835; JioSaavn API Tester</h1>
+  <h1>* JioSaavn API Tester</h1>
 </div>
 
 <div class="search-section">
@@ -480,7 +480,7 @@ async function doSearch() {
 function renderSearchResults(data) {
   const el = $('searchResults');
   if (!data.results?.length) {
-    el.innerHTML = `<div class="empty-state"><div class="icon">&#9835;</div>No results found</div>`;
+    el.innerHTML = `<div class="empty-state"><div class="icon">*</div>No results found</div>`;
     return;
   }
   el.innerHTML = `<div style="color:var(--text2);font-size:13px;margin-bottom:12px;">
@@ -488,7 +488,7 @@ function renderSearchResults(data) {
   </div><div class="results-grid">${
     data.results.map(t => `
       <div class="track-card" onclick="playTrack('${escapeAttr(t.id)}', '${escapeAttr(t.title)}', '${escapeAttr(t.artist)}', '${escapeAttr(t.thumbnail)}', 'jiosaavn')">
-        <img class="art" src="${t.thumbnail || ''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>♫</text></svg>'">
+        <img class="art" src="${t.thumbnail || ''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>*</text></svg>'">
         <div class="info">
           <div class="title" title="${escapeAttr(t.title)}">${escapeHtml(t.title)}</div>
           <div class="artist" title="${escapeAttr(t.artist)}">${escapeHtml(t.artist)}</div>
@@ -549,7 +549,7 @@ function renderDetail(data, containerId) {
   const header = `
     <div class="detail-view">
       <div class="detail-header">
-        <img src="${data.thumbnail || ''}" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>♫</text></svg>'">
+        <img src="${data.thumbnail || ''}" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>*</text></svg>'">
         <div class="info">
           <h2>${escapeHtml(data.title || data.name || '')}</h2>
           ${data.artist ? `<p>${escapeHtml(data.artist)}</p>` : ''}
@@ -568,7 +568,7 @@ function renderDetail(data, containerId) {
               <div class="t-artist">${escapeHtml(t.artist)}</div>
             </div>
             <span class="t-dur">${formatDur(t.duration_seconds)}</span>
-            <button class="play-btn">&#9654;</button>
+            <button class="play-btn">&gt;</button>
           </div>
         `).join('')}
       </div>
@@ -586,14 +586,14 @@ async function loadCharts() {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     if (!data.charts?.length) {
-      el.innerHTML = '<div class="empty-state"><div class="icon">&#9835;</div>No charts available</div>';
+      el.innerHTML = '<div class="empty-state"><div class="icon">*</div>No charts available</div>';
       return;
     }
     el.innerHTML = `<div style="color:var(--text2);font-size:13px;margin-bottom:12px;">${data.charts.length} charts</div>
       <div class="charts-grid">${
         data.charts.map(c => `
           <div class="chart-card" onclick="loadPlaylistById('${escapeAttr(c.id)}')">
-            <img src="${c.thumbnail || ''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>♫</text></svg>'">
+            <img src="${c.thumbnail || ''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>*</text></svg>'">
             <div class="c-title">${escapeHtml(c.title)}</div>
             ${c.description ? `<div class="c-desc">${escapeHtml(c.description)}</div>` : ''}
           </div>
@@ -669,7 +669,7 @@ function escapeHtml(str) {
 
 function escapeAttr(str) {
   if (!str) return '';
-  // Build on escapeHtml so plain text is never double-escaped (e.g. &amp; → &amp;amp;).
+  // Build on escapeHtml so plain text is never double-escaped (e.g. &amp; -> &amp;amp;).
   return escapeHtml(str).replace(/"/g, '&quot;');
 }
 

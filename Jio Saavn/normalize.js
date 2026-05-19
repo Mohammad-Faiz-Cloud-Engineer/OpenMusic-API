@@ -69,7 +69,7 @@ function extractJioSaavnArtist(item) {
 // ── HTML entity decoder ───────────────────────────────────────────────────
 // JioSaavn returns titles with HTML entities; decode them without a DOM
 // (Node.js safe). Handles both decimal NCRs (&#39;) and hex NCRs (&#x2019;).
-// Runs two passes to handle double-encoded sequences (e.g. &amp;amp; → &amp; → &).
+// Runs two passes to handle double-encoded sequences (e.g. &amp;amp; -> &amp; -> &).
 function decodeHtmlEntitiesOnce(str) {
   if (!str || typeof str !== 'string') return str;
   return str
@@ -80,9 +80,9 @@ function decodeHtmlEntitiesOnce(str) {
     .replace(/&apos;/g, "'")
     .replace(/&#x27;/gi, "'")
     .replace(/&#x2F;/gi, '/')
-    // Hex numeric character references (e.g. &#x2019; / &#X2019; → ')
+    // Hex numeric character references (e.g. &#x2019; / &#X2019; -> ')
     .replace(/&#x([0-9a-fA-F]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-    // Decimal numeric character references (e.g. &#8217; → ')
+    // Decimal numeric character references (e.g. &#8217; -> ')
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
     // &amp; must be last so it doesn't interfere with other entities above
     .replace(/&amp;/g, '&');
@@ -92,7 +92,7 @@ function decodeHtmlEntities(str) {
   if (!str || typeof str !== 'string') return str;
   // Single pass: decode all entities. &amp; is decoded last in decodeHtmlEntitiesOnce
   // so it doesn't interfere with other entities. Double-encoded sequences like
-  // &amp;amp; decode to &amp; (one level only), which is the correct safe behaviour —
+  // &amp;amp; decode to &amp; (one level only), which is the correct safe behaviour -
   // we never fully unescape double-encoded markup to raw HTML characters.
   return decodeHtmlEntitiesOnce(str);
 }

@@ -301,7 +301,7 @@ body {
 
 <div class="header">
   <div class="header-top">
-    <h1><span>&#9670;</span> OpenMusic Admin</h1>
+    <h1><span></span> OpenMusic Admin</h1>
     <input class="api-input" id="apiBase" value="https://LocalFind-OpenMusic-API.hf.space" spellcheck="false">
   </div>
 </div>
@@ -326,7 +326,7 @@ body {
   </div>
   <div id="resultsContainer">
     <div class="state-msg">
-      <div class="icon">&#9835;</div>
+      <div class="icon">*</div>
       <div class="msg">Search for a song to get started</div>
     </div>
   </div>
@@ -398,7 +398,7 @@ function escapeHtml(s) {
 
 function escapeAttr(s) {
   if (s == null || s === '') return '';
-  // Build on escapeHtml so plain text is never double-escaped (e.g. &amp; → &amp;amp;).
+  // Build on escapeHtml so plain text is never double-escaped (e.g. &amp; -> &amp;amp;).
   return escapeHtml(s).replace(/"/g, '&quot;');
 }
 
@@ -471,7 +471,7 @@ async function doSearch() {
     const data = await r.json();
     renderResults(data);
   } catch (e) {
-    RESULTS_CONTAINER.innerHTML = `<div class="state-msg"><div class="icon">&#9888;</div><div class="msg">${escapeHtml(e.message)}</div></div>`;
+    RESULTS_CONTAINER.innerHTML = `<div class="state-msg"><div class="icon">!</div><div class="msg">${escapeHtml(e.message)}</div></div>`;
     showToast(e.message, 'err');
   }
 }
@@ -483,13 +483,13 @@ function renderResults(data) {
   RESULTS_COUNT.textContent = `${tracks.length} result${tracks.length !== 1 ? 's' : ''} on ${data.source}`;
 
   if (!tracks.length) {
-    RESULTS_CONTAINER.innerHTML = '<div class="state-msg"><div class="icon">&#9835;</div><div class="msg">No results found</div></div>';
+    RESULTS_CONTAINER.innerHTML = '<div class="state-msg"><div class="icon">*</div><div class="msg">No results found</div></div>';
     return;
   }
 
   RESULTS_CONTAINER.innerHTML = `<div class="results-grid">${tracks.map(t => `
     <div class="track-card" data-id="${escapeAttr(t.id)}" data-title="${escapeAttr(t.title)}" data-artist="${escapeAttr(t.artist)}" data-thumb="${escapeAttr(t.thumbnail || '')}" onclick="playTrack(this)">
-      <img class="art" src="${t.thumbnail || ''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>♫</text></svg>'">
+      <img class="art" src="${t.thumbnail || ''}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22><rect fill=%2222222e%22 width=%22200%22 height=%22200%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%229898b0%22 font-size=%2230%22>*</text></svg>'">
       <div class="info">
         <div class="title" title="${escapeAttr(t.title)}">${escapeHtml(t.title)}</div>
         <div class="artist" title="${escapeAttr(t.artist)}">${escapeHtml(t.artist)}</div>
@@ -498,7 +498,7 @@ function renderResults(data) {
           ${t.album ? `<span class="tag">${escapeHtml(t.album)}</span>` : ''}
         </div>
       </div>
-      <div class="play-overlay">&#9654;</div>
+      <div class="play-overlay">&gt;</div>
     </div>
   `).join('')}</div>`;
 }
