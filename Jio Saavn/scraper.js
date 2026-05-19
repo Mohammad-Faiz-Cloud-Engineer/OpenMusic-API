@@ -94,8 +94,6 @@ async function getStreamUrl(id) {
     throw new Error('No encrypted media URL found for this song');
   }
 
-  const has320 = song?.more_info?.['320kbps'] === 'true';
-
   let resolvedUrl;
   let quality;
   let format;
