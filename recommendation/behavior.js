@@ -5,6 +5,10 @@ const {
   cleanupTallyData,
 } = require('./storage');
 
+function isUnsafeObjectKey(key) {
+  return key === '__proto__' || key === 'prototype' || key === 'constructor';
+}
+
 // ── Record a play transition ──────────────────────────────────────────────
 // Call this when a user moves from one track to the next.
 // previousSongId → currentSongId increments the transition counter.
@@ -14,6 +18,7 @@ function updateTransition(previousSongId, currentSongId) {
   const curr = String(currentSongId || '').trim();
 
   if (!prev || !curr || prev === curr) return;
+  if (isUnsafeObjectKey(prev) || isUnsafeObjectKey(curr)) return;
 
   const data = applyDecayIfNeeded(loadTallyData());
 
