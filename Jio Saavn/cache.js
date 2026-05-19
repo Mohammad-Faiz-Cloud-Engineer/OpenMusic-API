@@ -10,4 +10,9 @@ const streamCache = new NodeCache({ stdTTL: 1500, checkperiod: 120 });
 // Album / Playlist / Charts: 10 min TTL
 const metadataCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
 
-module.exports = { searchCache, streamCache, metadataCache };
+// Recommendations / up-next: 2 min TTL.
+// Short TTL so that a new transition recorded via POST /transition is reflected
+// quickly. The route handler also proactively invalidates entries on write.
+const recommendCache = new NodeCache({ stdTTL: 120, checkperiod: 60 });
+
+module.exports = { searchCache, streamCache, metadataCache, recommendCache };

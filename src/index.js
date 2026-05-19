@@ -2,6 +2,7 @@ const path = require('path');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const jiosaavnRoutes = require('../Jio Saavn/routes');
+const recommendationRoutes = require('../recommendation/routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +17,8 @@ const limiter = rateLimit({
   message: { error: 'rate_limited', message: 'Too many requests. Try again in a minute.' },
 });
 app.use(limiter);
+
+app.use(express.json());
 
 app.use((_req, res, next) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -34,6 +37,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/jiosaavn', jiosaavnRoutes);
+app.use('/jiosaavn', recommendationRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'not_found', message: 'Endpoint not found. Available: /health, /jiosaavn/*' });

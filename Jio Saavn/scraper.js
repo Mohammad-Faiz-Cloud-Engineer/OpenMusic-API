@@ -4,6 +4,7 @@ const {
   normalizeSearch, normalizeStream, normalizeAlbum, normalizePlaylist,
   normalizeSuggestions, normalizeCharts, decodeHtmlEntities,
 } = require('./normalize');
+const { upsertSongRecords } = require('../recommendation/content');
 
 const BASE_URL = 'https://www.jiosaavn.com/api.php';
 
@@ -63,7 +64,11 @@ async function callApi(call, params = {}) {
 // ── Search ────────────────────────────────────────────────────────────────
 async function search(query) {
   const data = await callApi('search.getResults', { q: query, n: 20, p: 1 });
-  return normalizeSearch('jiosaavn', data, query);
+  const result = normalizeSearch('jiosaavn', data, query);
+  // Populate the recommendation catalog with search results so that
+  // content-based similarity is available immediately after a search.
+  upsertSongRecords(result.results);
+  return result;
 }
 
 // ── Stream URL ────────────────────────────────────────────────────────────
@@ -163,7 +168,10 @@ async function getAlbum(id) {
   if (!data || (typeof data === 'object' && !data.albumid && !data.id && !data.title && !data.songs && !data.list)) {
     throw new Error('Album not found');
   }
-  return normalizeAlbum('jiosaavn', data);
+  const result = normalizeAlbum('jiosaavn', data);
+  // Populate the recommendation catalog with album tracks.
+  upsertSongRecords(result.tracks);
+  return result;
 }
 
 // ── Playlist ──────────────────────────────────────────────────────────────
@@ -172,7 +180,10 @@ async function getPlaylist(id) {
   if (!data || (typeof data === 'object' && !data.listid && !data.id && !data.title && !data.songs && !data.list)) {
     throw new Error('Playlist not found');
   }
-  return normalizePlaylist('jiosaavn', data);
+  const result = normalizePlaylist('jiosaavn', data);
+  // Populate the recommendation catalog with playlist tracks.
+  upsertSongRecords(result.tracks);
+  return result;
 }
 
 // ── Suggestions ───────────────────────────────────────────────────────────
