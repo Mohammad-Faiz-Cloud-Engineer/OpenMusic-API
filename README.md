@@ -305,4 +305,4 @@ No other config is needed. Everything (JioSaavn base URL, DES key, user agents) 
 
 Personal music API proxy. Scrapes what public APIs don't offer. Streams what streaming apps won't give you directly. Use at your own risk; no warranty, no guarantees.
 
-**BSD 2-Clause License.** Do whatever you want, but don't blame me if it breaks.
+**BSD 2-Clause License.** Do whatever you want, but don't blame me if it breaks. 
