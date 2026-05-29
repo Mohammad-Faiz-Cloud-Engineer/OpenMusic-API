@@ -259,6 +259,19 @@ router.get('/track/:id/play', async (req, res) => {
     cdnRes.data.pipe(res);
   } catch (err) {
     console.error('[jiosaavn] proxy error:', err.message);
+
+    // Errors from getStreamUrl (track/decryption/source failures)
+    if (err.message?.includes('No encrypted media') || err.message?.includes('not found') || err.message?.includes('Song not found')) {
+      return res.status(404).json({ error: 'track_not_found', source: 'jiosaavn', message: err.message });
+    }
+    if (err.message?.includes('Failed to decrypt') || err.message?.includes('decryption')) {
+      return res.status(500).json({ error: 'decryption_failed', source: 'jiosaavn', message: 'Failed to decrypt stream URL' });
+    }
+    if (err.message?.includes('unavailable') || err.message?.includes('timed out') || err.message?.includes('returned 5')) {
+      return res.status(503).json({ error: 'source_unavailable', source: 'jiosaavn', message: err.message });
+    }
+
+    // Errors from the CDN proxy
     if (err.response?.status === 403 || err.message?.includes('403')) {
       return res.status(502).json({ error: 'proxy_forbidden', message: 'Stream source rejected the request (403). The CDN may be blocking our server.' });
     }

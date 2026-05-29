@@ -37,13 +37,13 @@ function extractJioSaavnArtist(item) {
 
   // Primary artists first (cleanest)
   if (mi?.artistMap?.primary_artists?.length) {
-    const names = [...new Set(mi.artistMap.primary_artists.map(a => decodeHtmlEntities(a.name)).filter(Boolean))];
+    const names = [...new Set(mi.artistMap.primary_artists.map(a => decodeHtmlEntities(a.name.trim())).filter(Boolean))];
     if (names.length) return names.join(', ');
   }
 
   // All artists fallback
   if (mi?.artistMap?.artists?.length) {
-    const names = [...new Set(mi.artistMap.artists.map(a => decodeHtmlEntities(a.name)).filter(Boolean))];
+    const names = [...new Set(mi.artistMap.artists.map(a => decodeHtmlEntities(a.name.trim())).filter(Boolean))];
     if (names.length) return names.join(', ');
   }
 
@@ -59,7 +59,7 @@ function extractJioSaavnArtist(item) {
 
   // Top-level artist_map (some endpoints)
   if (item.artist_map?.primary_artists?.length) {
-    const names = [...new Set(item.artist_map.primary_artists.map(a => decodeHtmlEntities(a.name)).filter(Boolean))];
+    const names = [...new Set(item.artist_map.primary_artists.map(a => decodeHtmlEntities(a.name.trim())).filter(Boolean))];
     if (names.length) return names.join(', ');
   }
 
