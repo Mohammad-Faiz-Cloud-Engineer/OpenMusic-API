@@ -399,7 +399,10 @@ function escapeHtml(s) {
 function escapeAttr(s) {
   if (s == null || s === '') return '';
   // Build on escapeHtml so plain text is never double-escaped (e.g. &amp; -> &amp;amp;).
-  return escapeHtml(s).replace(/"/g, '&quot;');
+  return escapeHtml(s)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;');
 }
 
 function formatDur(s) {

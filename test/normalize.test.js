@@ -4,7 +4,6 @@ const assert = require('node:assert/strict');
 const {
   trim,
   decodeHtmlEntities,
-  pickThumbnail,
   extractJioSaavnThumbnail,
   extractJioSaavnArtist,
   normalizeSearch,
@@ -51,30 +50,6 @@ describe('decodeHtmlEntities', () => {
     assert.equal(decodeHtmlEntities(''), '');
     assert.equal(decodeHtmlEntities(null), null);
     assert.equal(decodeHtmlEntities(undefined), undefined);
-  });
-});
-
-describe('pickThumbnail', () => {
-  it('picks the widest thumbnail from an array', () => {
-    const thumbs = [
-      { url: 'https://a/small.jpg', width: 120 },
-      { url: 'https://a/large.jpg', width: 544 },
-      { url: 'https://a/medium.jpg', width: 226 },
-    ];
-    assert.equal(pickThumbnail(thumbs), 'https://a/large.jpg');
-  });
-
-  it('handles a single thumbnail object', () => {
-    assert.equal(
-      pickThumbnail({ url: 'https://a/one.jpg', width: 100 }),
-      'https://a/one.jpg',
-    );
-  });
-
-  it('returns null for empty or missing input', () => {
-    assert.equal(pickThumbnail(null), null);
-    assert.equal(pickThumbnail([]), null);
-    assert.equal(pickThumbnail([{}]), null);
   });
 });
 

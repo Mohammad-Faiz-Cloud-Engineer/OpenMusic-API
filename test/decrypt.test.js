@@ -7,6 +7,8 @@ describe('decryptMediaUrl', () => {
   it('rejects empty or non-string input', () => {
     assert.throws(() => decryptMediaUrl(''), /Invalid encrypted URL/);
     assert.throws(() => decryptMediaUrl(null), /Invalid encrypted URL/);
+    assert.throws(() => decryptMediaUrl(123), /Invalid encrypted URL/);
+    assert.throws(() => decryptMediaUrl(true), /Invalid encrypted URL/);
   });
 
   it('rejects invalid base64 ciphertext', () => {

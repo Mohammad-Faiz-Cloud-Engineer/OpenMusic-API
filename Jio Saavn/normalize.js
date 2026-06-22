@@ -69,7 +69,8 @@ function extractJioSaavnArtist(item) {
 // ── HTML entity decoder ───────────────────────────────────────────────────
 // JioSaavn returns titles with HTML entities; decode them without a DOM
 // (Node.js safe). Handles both decimal NCRs (&#39;) and hex NCRs (&#x2019;).
-// Runs two passes to handle double-encoded sequences (e.g. &amp;amp; -> &amp; -> &).
+// Single pass decodes all named and numeric HTML entities. &amp; is decoded
+// last so it does not interfere with other entities above.
 function decodeHtmlEntitiesOnce(str) {
   if (!str || typeof str !== 'string') return str;
   return str
@@ -257,15 +258,6 @@ function normalizeCharts(source, data) {
   return { source, charts };
 }
 
-// ── Thumbnail helper (kept for test compatibility) ────────────────────────
-function pickThumbnail(thumbnails) {
-  if (!thumbnails) return null;
-  const arr = Array.isArray(thumbnails) ? thumbnails : [thumbnails];
-  if (!arr.length) return null;
-  const sorted = [...arr].sort((a, b) => (b.width || 0) - (a.width || 0));
-  return sorted[0]?.url || null;
-}
-
 module.exports = {
   trim,
   normalizeSearch,
@@ -275,7 +267,6 @@ module.exports = {
   normalizeSuggestions,
   normalizeCharts,
   decodeHtmlEntities,
-  pickThumbnail,
   extractJioSaavnThumbnail,
   extractJioSaavnArtist,
 };

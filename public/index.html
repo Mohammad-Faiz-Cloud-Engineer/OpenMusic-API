@@ -670,7 +670,10 @@ function escapeHtml(str) {
 function escapeAttr(str) {
   if (!str) return '';
   // Build on escapeHtml so plain text is never double-escaped (e.g. &amp; -> &amp;amp;).
-  return escapeHtml(str).replace(/"/g, '&quot;');
+  return escapeHtml(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;');
 }
 
 function showToast(msg) {
