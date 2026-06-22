@@ -241,24 +241,136 @@ Every endpoint returns JSON. Here's what you get:
 
 ---
 
-## How It Works
+## Architecture
+
+### System Overview
 
 ```
-Browser / App -> Express -> Scraper (JioSaavn) -> Normalizer -> Cache -> JSON
+┌──────────┐     ┌─────────────────────────────────────────────────────┐
+│ Browser  │────>│                  Express Server                     │
+│ / SPA    │     │  src/index.js                                       │
+│ (public/)│     │                                                     │
+│          │     │  Rate Limiter ─> CORS ─> Static ─> Router ─> JSON   │
+└──────────┘     └──────────┬──────────────────────────────────────────┘
+                            │
+                     ┌──────v──────────────────────────────────────┐
+                     │           Jio Saavn Router                  │
+                     │         Jio Saavn/routes.js                 │
+                     │                                             │
+                     │  Cache-aside: lookup ── hit? ──> return     │
+                     │                     miss? ──> scrape & cache│
+                     └──────┬──────────────────────────────────────┘
+                            │
+               ┌────────────┼────────────────┐
+               v            v                 v
+       ┌────────────┐ ┌──────────┐ ┌──────────────┐
+       │  Scraper   │ │  Cache   │ │  Normalizer  │
+       │ scraper.js │ │ cache.js │ │ normalize.js │
+       └──────┬─────┘ └──────────┘ └──────────────┘
+              │
+       ┌──────v──────┐
+       │   Decrypt   │
+       │  decrypt.js │
+       └─────────────┘
 ```
 
-- Each request checks an in-memory cache first
-- If missed, the scraper fetches from the JioSaavn API, normalizes the response, caches it, and returns JSON
-- Stream URLs are decrypted with a hardcoded DES key, or fetched via auth token generation
-- `/jiosaavn/track/:id/play` proxies the audio through the server to bypass CORS and Referer restrictions
+### Request Flow (Step by Step)
 
-### Cache TTLs
+```
+Browser / App
+  │
+  │  GET /jiosaavn/search?q=tere naal
+  v
+Express (src/index.js)
+  ├── 1. Rate limiter ─────── 429 if >120 req/min
+  ├── 2. CORS middleware ──── sets Allow-Origin: *, handles OPTIONS
+  ├── 3. Static files ─────── serves public/ (not for /jiosaavn/*)
+  └── 4. Route match ──────── /jiosaavn/* → Jio Saavn/routes.js
+                               /health       → { status: 'ok' }
+                               anything else → 404
+                               
+Jio Saavn/routes.js
+  ├── Validate params (400 if missing)
+  ├── Cache lookup ── hit? ──> return cached JSON immediately
+  │                  miss? ──> continue
+  ├── Call scraper function (Jio Saavn/scraper.js)
+  │     ├── callApi('search.getResults', { q, n, p })
+  │     │     └── axios GET → www.jiosaavn.com/api.php
+  │     │           └── parseResponse() strips __JIO_SAAVN__ prefix
+  │     └── normalizeSearch('jiosaavn', data, query)
+  │           └── jioSaavnSearchResults() → jioSaavnSong() per item
+  ├── Cache the result
+  └── Return JSON with ETag / Cache-Control headers
+```
 
-| Cache | TTL | Endpoints |
+### Module Dependency Graph
+
+```
+src/index.js
+  ├── express
+  ├── express-rate-limit
+  └── Jio Saavn/routes.js            ← all /jiosaavn/* endpoints
+        ├── express (Router)
+        ├── axios                     ← for audio proxy stream
+        ├── Jio Saavn/scraper.js      ← API calls to JioSaavn
+        │     ├── axios               ← HTTP client
+        │     ├── Jio Saavn/decrypt.js← DES/ECB decryption fallback
+        │     │     └── crypto-js
+        │     └── Jio Saavn/normalize.js  ← pure transformations
+        ├── Jio Saavn/cache.js        ← in-memory (node-cache)
+        └── Jio Saavn/normalize.js    ← trim helper only
+```
+
+Each module is single-purpose with no circular dependencies.
+
+### Stream URL Resolution — The Most Complex Path
+
+`GET /jiosaavn/track/:id` goes through a multi-tier resolution strategy:
+
+```
+jiosaavn.getStreamUrl(id)
+  │
+  ├── 1. callApi('song.getDetails', { pids: id })
+  │       └── Handles 3 JioSaavn response shapes:
+  │             { songs: [...] }, top-level array, or keyed object
+  │
+  ├── 2. Extract encrypted_media_url from song.more_info
+  │
+  ├── 3. Try auth token generation (preferred)
+  │       └── callApi('song.generateAuthToken', { url, bitrate })
+  │             Tries: 320kbps → 160kbps → 128kbps
+  │             Success → use auth_url, parse Expires= timestamp
+  │             Replace web.saavncdn.com → aac.saavncdn.com
+  │
+  └── 4. DES decrypt fallback (if all auth attempts fail)
+          └── decryptMediaUrl(encUrl)
+                └── CryptoJS.DES.decrypt(key: '38346591', ECB, PKCS7)
+                      Returns plain CDN URL, upgrade to _320 bitrate
+```
+
+The resolution result is cached for 25 minutes. The proxy endpoint (`/track/:id/play`) pipes the CDN stream through the server, forwarding `Range` headers for seek support (206 Partial Content).
+
+### Caching Strategy (Cache-Aside Pattern)
+
+| Cache Store | TTL | Check Period | Endpoints |
+|---|---|---|---|
+| `searchCache` | 5 min | 60s | `/search`, `/suggestions` |
+| `metadataCache` | 10 min | 120s | `/album/:id`, `/playlist/:id`, `/charts` |
+| `streamCache` | 25 min | 120s | `/track/:id`, `/track/:id/play` |
+
+Stream cache entries are proactively evicted when the auth token's `expires_at` is within 3 minutes of expiry, ensuring stale URLs are never served.
+
+### Layers
+
+| Layer | Module | Responsibility |
 |---|---|---|
-| Search / Suggestions | 5 min | `/search`, `/suggestions` |
-| Album / Playlist / Charts | 10 min | `/album`, `/playlist`, `/charts` |
-| Stream URLs | 25 min | `/track/:id` |
+| **Transport** | `src/index.js` | HTTP server, middleware chain, graceful shutdown |
+| **Routing** | `Jio Saavn/routes.js` | Param validation, cache orchestration, error → HTTP status mapping, audio proxy |
+| **Scraper** | `Jio Saavn/scraper.js` | JioSaavn API calls, response parsing, multi-bitrate stream resolution |
+| **Normalizer** | `Jio Saavn/normalize.js` | Pure data transformation — raw JioSaavn JSON → consistent shapes, HTML entity decoding, thumbnail extraction |
+| **Decrypt** | `Jio Saavn/decrypt.js` | DES/ECB decryption (legacy stream URL fallback) |
+| **Cache** | `Jio Saavn/cache.js` | Three isolated node-cache stores with independent TTLs |
+| **UI** | `public/index.html` | Vanilla JS SPA — dark theme, search, album/playlist/charts views, audio player |
 
 ---
 
